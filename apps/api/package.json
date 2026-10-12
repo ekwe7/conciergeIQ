@@ -1,0 +1,14 @@
+{
+  "name": "@conciergeiq/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"api dev\"",
+    "build": "echo \"api build\"",
+    "test": "echo \"api test\""
+  },
+  "dependencies": {
+    "@conciergeiq/contracts": "workspace:*"
+  }
+}

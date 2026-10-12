@@ -1,0 +1,14 @@
+{
+  "name": "@conciergeiq/dashboard-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"dashboard-web dev\"",
+    "build": "echo \"dashboard-web build\"",
+    "test": "echo \"dashboard-web test\""
+  },
+  "dependencies": {
+    "@conciergeiq/contracts": "workspace:*"
+  }
+}

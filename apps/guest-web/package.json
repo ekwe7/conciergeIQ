@@ -1,0 +1,14 @@
+{
+  "name": "@conciergeiq/guest-web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "echo \"guest-web dev\"",
+    "build": "echo \"guest-web build\"",
+    "test": "echo \"guest-web test\""
+  },
+  "dependencies": {
+    "@conciergeiq/contracts": "workspace:*"
+  }
+}
