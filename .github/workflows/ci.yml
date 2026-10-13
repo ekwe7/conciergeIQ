@@ -1,4 +1,9 @@
-name: my Ci workflows build/deploy
+# =============================================================================
+# CI Pipeline — Runs on every push to main and on pull requests targeting main.
+# Purpose: Validate code quality, type safety, and correctness before merging.
+# =============================================================================
+
+name: CI
 
 on:
   push:
@@ -11,34 +16,46 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Step 1: Pull the latest code from the repository
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # Step 2: Install pnpm (the package manager used by this monorepo)
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 9
 
+      # Step 3: Set up Node.js and enable pnpm's dependency cache for faster installs
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: 'pnpm'
 
+      # Step 4: Install all workspace dependencies using the lockfile (no updates allowed)
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # Step 5: Enforce module boundary rules — prevents packages from importing
+      #         things they shouldn't (e.g. apps importing from other apps)
       - name: Check dependency boundaries
         run: pnpm run lint:deps
 
-      - name: Build                                                        
-            run: pnpm --filter @conciergeiq/${{ matrix.app }}... run build     
-                                                                               
-          - name: Upload build artifact                                        
-            uses: actions/upload-artifact@v4                                   
-            with:                                                              
-              name: ${{ matrix.app }}-build                                    
-              path: apps/${{ matrix.app }}/dist                                
-              retention-days: 7 
+      # Step 6: Run ESLint across the entire monorepo to catch code style
+      #         and potential bug issues
+      - name: Lint
+        run: pnpm run lint
 
+      # Step 7: Run the TypeScript compiler in check mode across all packages
+      #         to ensure there are no type errors
+      - name: Typecheck
+        run: pnpm run typecheck
 
+      # Step 8: Run all unit and integration tests across the monorepo
+      - name: Run tests
+        run: pnpm run test
+
+      # Step 9: Build all packages to verify the project compiles successfully
+      - name: Build
+        run: pnpm run build
