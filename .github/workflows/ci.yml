@@ -23,8 +23,6 @@ jobs:
       # Step 2: Install pnpm (the package manager used by this monorepo)
       - name: Install pnpm
         uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       # Step 3: Set up Node.js and enable pnpm's dependency cache for faster installs
       - name: Setup Node.js
