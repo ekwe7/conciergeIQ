@@ -1,0 +1,33 @@
+# Dependency folders
+node_modules
+apps/*/node_modules
+packages/*/node_modules
+.pnpm-store
+
+# Local compiled outputs
+dist
+apps/*/dist
+packages/*/dist
+
+# Environment variables & secrets (CRITICAL for security)
+.env
+.env.local
+.env.*.local
+*.pem
+
+# Git and CI artifacts
+.git
+.github
+
+# Testing and coverage
+coverage
+.vitest
+
+# Operating system and editor metadata
+.DS_Store
+Thumbs.db
+.idea
+.vscode
+*.log
+npm-debug.log*
+pnpm-debug.log*
