@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: postgres:16-alpine
@@ -13,17 +11,30 @@ services:
       - '5432:5432'
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-concierge} -d ${POSTGRES_DB:-concierge_iq}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # Stage 2: Redis
-  # redis:
-  #   image: redis:7-alpine
-  #   container_name: conciergeiq-redis
-  #   restart: unless-stopped
-  #   ports:
-  #     - '6379:6379'
-  #   volumes:
-  #     - redis_data:/data
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: conciergeiq-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      LOG_LEVEL: info
+      DATABASE_URL: postgresql://${POSTGRES_USER:-concierge}:${POSTGRES_PASSWORD:-concierge_secret}@postgres:5432/${POSTGRES_DB:-concierge_iq}
+      GUEST_APP_URL: ${GUEST_WEB_URL:-http://localhost:5173}
+      DASHBOARD_APP_URL: ${DASHBOARD_WEB_URL:-http://localhost:5174}
+    ports:
+      - '3000:3000'
 
 volumes:
   postgres_data:
-  # redis_data:
