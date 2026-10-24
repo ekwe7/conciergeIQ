@@ -16,7 +16,8 @@ RUN pnpm install --frozen-lockfile
 COPY packages/contracts ./packages/contracts
 COPY apps/api ./apps/api
 
-RUN pnpm --filter @conciergeiq/api build
+# Builds the API and the workspace packages it depends on (the shared contracts).
+RUN pnpm --filter "@conciergeiq/api..." build
 
 # Stage 2: Production Runner
 FROM node:22-alpine AS runner

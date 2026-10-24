@@ -10,7 +10,13 @@
     "lint": "eslint .",
     "lint:deps": "depcruise --config .dependency-cruiser.cjs apps packages",
     "test": "pnpm -r run test",
-    "typecheck": "pnpm -r run typecheck"
+    "typecheck": "pnpm -r run typecheck",
+    "db:up": "docker compose up -d postgres",
+    "db:down": "docker compose down",
+    "db:generate": "pnpm --filter @conciergeiq/api db:generate",
+    "db:migrate": "pnpm --filter @conciergeiq/api db:migrate",
+    "db:seed": "pnpm --filter @conciergeiq/api db:seed",
+    "test:architecture": "pnpm --filter @conciergeiq/api exec vitest run test/architecture"
   },
   "devDependencies": {
     "dependency-cruiser": "^16.4.0",
