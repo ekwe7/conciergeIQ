@@ -1,7 +1,7 @@
-export interface UserDeactivatedEvent {
+import type { EventBase } from './event-base.js';
+
+export interface UserDeactivatedEvent extends EventBase {
   eventName: 'user.deactivated';
   userId: string;
-  hotelId: string;
-  deactivatedByUserId: string;
-  deactivatedAt: string;
+  userName: string;
 }

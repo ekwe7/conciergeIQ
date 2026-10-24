@@ -1,26 +1,43 @@
 import { z } from 'zod';
 
-export const RoomSchema = z.object({
-  id: z.string().uuid(),
-  hotelId: z.string().uuid(),
-  roomNumber: z.string().min(1),
-  floor: z.number().int().optional(),
-  type: z.enum(['standard', 'deluxe', 'suite', 'penthouse']),
-  status: z.enum(['vacant', 'occupied', 'cleaning', 'maintenance']),
-});
-export type Room = z.infer<typeof RoomSchema>;
+const roomNumber = z.string().trim().min(1).max(10);
+const floor = z.number().int().min(0).max(200);
 
-export const GenerateRoomQRSchema = z.object({
-  roomId: z.string().uuid(),
-  expiresInSeconds: z.number().int().positive().default(86400 * 7), // 7 days default
-});
-export type GenerateRoomQRInput = z.infer<typeof GenerateRoomQRSchema>;
+export const CreateRoomSchema = z.object({ number: roomNumber, floor });
+export type CreateRoomInput = z.infer<typeof CreateRoomSchema>;
 
-export const RoomQRResponseSchema = z.object({
-  roomId: z.string().uuid(),
-  roomNumber: z.string(),
-  qrToken: z.string(),
-  qrCodeUrl: z.string().url(),
-  expiresAt: z.string().datetime(),
+export const CreateRoomsInBulkSchema = z.object({
+  rooms: z.array(CreateRoomSchema).min(1).max(500),
 });
-export type RoomQRResponse = z.infer<typeof RoomQRResponseSchema>;
+export type CreateRoomsInBulkInput = z.infer<typeof CreateRoomsInBulkSchema>;
+
+export const UpdateRoomSchema = z
+  .object({
+    number: roomNumber,
+    floor,
+    isOutOfOrder: z.boolean(),
+    outOfOrderReason: z.string().trim().max(120).nullable(),
+  })
+  .partial();
+export type UpdateRoomInput = z.infer<typeof UpdateRoomSchema>;
+
+export const RegenerateQrCodesSchema = z.object({
+  roomIds: z.array(z.string().uuid()).min(1).max(500),
+});
+export type RegenerateQrCodesInput = z.infer<typeof RegenerateQrCodesSchema>;
+
+export const ListRoomsQuerySchema = z.object({
+  floor: z.coerce.number().int().optional(),
+});
+
+export interface Room {
+  id: string;
+  number: string;
+  floor: number;
+  isOutOfOrder: boolean;
+  outOfOrderReason: string | null;
+  qrToken: string;
+  /** What the printed QR code opens: `<guest app>/r/<qrToken>`. */
+  qrUrl: string;
+  qrRegeneratedAt: string | null;
+}

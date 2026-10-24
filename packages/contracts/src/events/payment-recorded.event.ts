@@ -1,12 +1,11 @@
-export interface PaymentRecordedEvent {
+import type { PaymentMethod } from '../payment-method.js';
+import type { EventBase } from './event-base.js';
+
+export interface PaymentRecordedEvent extends EventBase {
   eventName: 'payment.recorded';
   paymentId: string;
   orderId: string;
-  hotelId: string;
+  orderNumber: number;
   amount: number;
-  currency: string;
-  paymentMethod: 'room_bill' | 'card' | 'cash';
-  status: 'succeeded' | 'failed' | 'pending';
-  transactionReference?: string;
-  recordedAt: string;
+  method: PaymentMethod;
 }

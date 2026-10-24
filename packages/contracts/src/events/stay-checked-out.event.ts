@@ -1,8 +1,9 @@
-export interface StayCheckedOutEvent {
+import type { EventBase } from './event-base.js';
+
+export interface StayCheckedOutEvent extends EventBase {
   eventName: 'stay.checked_out';
   stayId: string;
-  hotelId: string;
   roomId: string;
   roomNumber: string;
-  checkOutTime: string;
+  guestName: string;
 }

@@ -1,3 +1,5 @@
+export * from './event-base.js';
+export * from './domain-event.js';
 export * from './order-created.event.js';
 export * from './order-status-changed.event.js';
 export * from './payment-recorded.event.js';
@@ -6,3 +8,4 @@ export * from './stay-checked-in.event.js';
 export * from './stay-checked-out.event.js';
 export * from './guest-session-invalidated.event.js';
 export * from './user-deactivated.event.js';
+export * from './room-qr-regenerated.event.js';
