@@ -357,12 +357,12 @@ Defined and validated in `apps/api/src/config/env.ts`. The API refuses to start 
 | `PORT` | no | `3000` | HTTP port |
 | `LOG_LEVEL` | no | `info` | pino log level |
 | `DATABASE_URL` | yes | n/a | PostgreSQL connection string |
-| `JWT_ACCESS_SECRET` | yes | n/a | Secret for staff access tokens (long and random) |
-| `JWT_REFRESH_SECRET` | yes | n/a | Secret for refresh tokens (different from the access secret) |
-| `JWT_ACCESS_TTL` | no | `15m` | Access token lifetime |
-| `JWT_REFRESH_TTL` | no | `7d` | Refresh token lifetime |
-| `GUEST_APP_URL` | yes | n/a | Base URL of the guest app, used inside QR codes |
-| `CORS_ORIGINS` | no | guest and dashboard dev URLs | Comma-separated allowed origins |
+| `JWT_ACCESS_SECRET` | yes | n/a | Secret for staff access tokens, at least 32 characters (`openssl rand -base64 48`) |
+| `JWT_ACCESS_TTL_SECONDS` | no | `900` | Access token lifetime |
+| `REFRESH_TOKEN_TTL_DAYS` | no | `7` | Refresh token lifetime. Refresh tokens are random, stored hashed, and work once |
+| `GUEST_APP_URL` | no | `http://localhost:5173` | Base URL of the guest app, printed inside every QR code. Also allowed by CORS |
+| `DASHBOARD_APP_URL` | no | `http://localhost:5174` | Base URL of the staff dashboard. Allowed by CORS |
+| `TEST_DATABASE_URL` | tests only | local `concierge_iq_test` | Database the integration tests migrate and wipe |
 | `RATE_LIMIT_GUEST_PER_MINUTE` | no | `30` | Per-session limit on guest endpoints |
 | `REDIS_URL` | Stage 2 | n/a | Redis connection for background jobs |
 | `ESCALATION_FIRST_AFTER_SECONDS` | Stage 2 | `120` | Alert the shift manager if an order is unaccepted |
@@ -417,17 +417,23 @@ Base path: `/api/v1`. Request and response shapes live in `packages/contracts/sr
 | Method | Path | Minimum role | Purpose |
 |---|---|---|---|
 | `POST` | `/auth/login`, `/auth/refresh`, `/auth/logout` | n/a | Sign in and out |
-| `GET` | `/orders` | Staff | List the hotel's orders |
-| `PATCH` | `/orders/:id/status` | Staff | Advance or cancel an order |
-| `POST` | `/orders/:id/payments` | Receptionist | Mark an order as paid |
+| `GET` | `/auth/me`, `/hotel` | Staff | The signed-in user and their hotel |
+| `GET` | `/orders`, `/orders/:id` | Staff | The live board (last 24 hours, filter by `status`) and one order with its timeline |
+| `PATCH` | `/orders/:id/status` | Staff | Accept (`IN_PROGRESS`), deliver (`DELIVERED`) or cancel (`CANCELLED`, with a reason) |
+| `GET` | `/menu` | Staff | The menu with availability |
+| `POST` | `/orders/:id/payments` | Receptionist | Mark an order as paid (cash, card or transfer) |
+| `GET` | `/payments`, `/payments/summary`, `/payments/outstanding` | Receptionist | Payments, totals by method, and delivered orders still unpaid |
 | `PATCH` | `/menu/items/:id/availability` | Receptionist | One-tap available / unavailable |
+| `GET` | `/rooms`, `/stays`, `/stays/:id`, `/stays/:id/bill` | Receptionist | Rooms, active stays, and the bill shown before check-out |
 | `POST` | `/rooms/:id/check-in` | Receptionist | Start a stay |
 | `POST` | `/stays/:id/check-out` | Receptionist | End a stay and invalidate sessions |
-| `GET/POST/PATCH/DELETE` | `/menu/categories`, `/menu/items` | Manager | Manage the menu |
-| `GET/POST/PATCH` | `/users` | Manager (limited) / Admin | Manage accounts |
-| `GET/POST/PATCH` | `/rooms`, `POST /rooms/bulk` | Admin | Manage rooms |
-| `POST` | `/rooms/:id/qr/regenerate` | Admin | Replace a room's QR token |
-| `GET` | `/rooms/qr.pdf` | Admin | Download print-ready QR codes |
+| `POST/PATCH/DELETE` | `/menu/categories`, `/menu/items` | Manager | Manage the menu |
+| `GET/POST/PATCH` | `/users` | Manager (limited) / Admin | Manage accounts. Managers only manage staff and receptionists |
+| `GET` | `/activity`, `/activity.csv` | Manager | The activity log, filtered by `category`, `actorId`, `from`, `to` |
+| `POST/PATCH` | `/rooms`, `/rooms/bulk`, `/rooms/:id` | Admin | Manage rooms, including "out of order" |
+| `POST` | `/rooms/:id/qr/regenerate`, `/rooms/qr/regenerate` | Admin | Replace one or several rooms' QR tokens |
+| `GET` | `/rooms/qr.pdf` | Admin | Download print-ready QR codes (one A5 card per room, `?floor=` optional) |
+| `PATCH` | `/hotel` | Admin | Hotel name, address, timezone and currency |
 
 ### Roles
 
@@ -446,7 +452,7 @@ Permissions are enforced on the server for every request, not only hidden in the
 | Channel | Who connects | Receives |
 |---|---|---|
 | `/ws/guest` | A guest with a valid session | Events for their own room only |
-| `/ws/staff` | Signed-in staff | Events for their own hotel only |
+| `/ws/staff?accessToken=...` | Signed-in staff | Events for their own hotel only: new orders (play the sound on `NEW_ORDER_RECEIVED`), status changes, payments and availability. A deactivated user receives `SESSION_REVOKED` and is disconnected |
 
 Connections that are unauthenticated, or that try to subscribe to another hotel or room, are rejected.
 
@@ -464,8 +470,9 @@ Event types are defined once in `packages/contracts/src/events`. Modules import 
 | `stay.checked_out` | stays | guest-access (invalidates sessions), audit |
 | `guest_session.invalidated` | guest-access | realtime (closes guest connections), audit |
 | `user.deactivated` | identity | realtime (closes staff connections), audit |
+| `room.qr_regenerated` | rooms | audit |
 
-Every event carries `hotelId`, `occurredAt`, and the ID of what changed.
+Every event carries `hotelId`, `occurredAt`, an `actor` (staff member, guest room, or system) and the ID of what changed.
 
 ---
 
@@ -512,7 +519,7 @@ These rules keep the monolith modular. They are checked automatically in CI.
 
 1. Create `apps/api/src/modules/<name>/` with the four layers (`domain`, `application`, `infrastructure`, `interface`).
 2. Expose only what other modules need from `index.ts`. Keep everything else internal.
-3. Give the module its own PostgreSQL schema and add its tables to `shared/db/schema.ts`.
+3. Give the module its own PostgreSQL schema in `infrastructure/<name>.schema.ts` (drizzle-kit reads every `*.schema.ts` file), and add the schema name to `schemaFilter` in `apps/api/drizzle.config.ts`.
 4. Generate a migration with `pnpm db:generate`.
 5. If other modules must react to something that happens here, add an event type to `packages/contracts/src/events` and raise it from the aggregate.
 6. Register the module in `app.ts`.
@@ -527,8 +534,12 @@ These rules keep the monolith modular. They are checked automatically in CI.
 |---|---|---|
 | Unit | `modules/*/__tests__` | Domain rules, such as valid and invalid order transitions |
 | Architecture | `apps/api/test/architecture` | No module imports another module's internals |
-| Integration | `apps/api/test/integration` | Real database: order flow, check-out invalidating sessions, **tenant isolation** with two hotels |
+| Integration | `apps/api/test/integration` | Real database through the HTTP API: sign-in, roles, rooms and QR codes, check-in and check-out, menu, the live board and its WebSocket, payments, the activity log, **tenant isolation** with two hotels |
 | End to end | `apps/api/test/e2e` | QR scan to delivered order over HTTP and WebSocket |
+
+Integration tests need PostgreSQL and a `concierge_iq_test` database (`createdb concierge_iq_test`, or set `TEST_DATABASE_URL`). The test setup applies migrations and wipes the tables between tests. In CI a PostgreSQL service provides it.
+
+Tests use a small harness in `apps/api/test/support`: `TestWorld` starts the real app with a clock the test controls, and `createHotel()` returns a hotel whose admin, manager, receptionist and staff member are already signed in, so a test reads like `await hotel.receptionist.post('/rooms/:id/check-in', ...)`.
 
 Tests that must never be skipped:
 
@@ -585,13 +596,13 @@ Record significant decisions as short notes in `docs/adr/`, for example `0001-ev
 **Done when:** one phone and one laptop run the full order flow on a seeded test hotel, and a second hotel's data is fully invisible to the first.
 
 - [ ] Shared contracts frozen (QR token, statuses, events)
-- [ ] Event bus, outbox, and dispatcher
-- [ ] `identity`, `hotels`, tenant isolation
-- [ ] `rooms`, `stays`, QR PDF
-- [ ] `menu` and availability
+- [x] Event bus, outbox, and dispatcher
+- [x] `identity`, `hotels`, tenant isolation
+- [x] `rooms`, `stays`, QR PDF
+- [x] `menu` and availability
 - [ ] `guest-access` and `ordering`
 - [ ] `realtime` gateway
-- [ ] `payments` (mark as paid) and `audit`
+- [x] `payments` (mark as paid) and `audit`
 - [ ] Guest app and staff dashboard
 - [ ] Seed data and integration tests
 

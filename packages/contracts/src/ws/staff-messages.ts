@@ -1,12 +1,7 @@
 import type { OrderStatus } from '../order-status.js';
+import type { PaymentMethod } from '../payment-method.js';
 
-export type StaffWSMessageType =
-  | 'STAFF_CONNECTED'
-  | 'NEW_ORDER_RECEIVED'
-  | 'ORDER_STATUS_CHANGED'
-  | 'NEW_SERVICE_REQUEST'
-  | 'SERVICE_REQUEST_CHANGED'
-  | 'EMERGENCY_ALERT';
+export type StaffWSMessageType = StaffWSMessage['type'];
 
 export interface StaffConnectedMessage {
   type: 'STAFF_CONNECTED';
@@ -17,10 +12,12 @@ export interface StaffConnectedMessage {
   };
 }
 
+/** A guest placed an order. The dashboard plays the new-order sound on this message. */
 export interface StaffNewOrderMessage {
   type: 'NEW_ORDER_RECEIVED';
   payload: {
     orderId: string;
+    orderNumber: number;
     roomNumber: string;
     totalAmount: number;
     itemsSummary: string;
@@ -32,10 +29,39 @@ export interface StaffOrderStatusChangedMessage {
   type: 'ORDER_STATUS_CHANGED';
   payload: {
     orderId: string;
+    orderNumber: number;
     previousStatus: OrderStatus;
     newStatus: OrderStatus;
-    updatedByUserId?: string;
+    changedBy?: string;
     updatedAt: string;
+  };
+}
+
+export interface StaffPaymentRecordedMessage {
+  type: 'PAYMENT_RECORDED';
+  payload: {
+    orderId: string;
+    orderNumber: number;
+    amount: number;
+    method: PaymentMethod;
+    recordedAt: string;
+  };
+}
+
+export interface StaffItemAvailabilityChangedMessage {
+  type: 'ITEM_AVAILABILITY_CHANGED';
+  payload: {
+    itemId: string;
+    itemName: string;
+    isAvailable: boolean;
+  };
+}
+
+/** The signed-in account was deactivated. The dashboard signs out on this message. */
+export interface StaffSessionRevokedMessage {
+  type: 'SESSION_REVOKED';
+  payload: {
+    reason: 'deactivated';
   };
 }
 
@@ -65,5 +91,8 @@ export type StaffWSMessage =
   | StaffConnectedMessage
   | StaffNewOrderMessage
   | StaffOrderStatusChangedMessage
+  | StaffPaymentRecordedMessage
+  | StaffItemAvailabilityChangedMessage
+  | StaffSessionRevokedMessage
   | StaffNewServiceRequestMessage
   | StaffEmergencyAlertMessage;

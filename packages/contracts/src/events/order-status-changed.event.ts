@@ -1,12 +1,13 @@
 import type { OrderStatus } from '../order-status.js';
+import type { EventBase } from './event-base.js';
 
-export interface OrderStatusChangedEvent {
+export interface OrderStatusChangedEvent extends EventBase {
   eventName: 'order.status_changed';
   orderId: string;
-  hotelId: string;
+  orderNumber: number;
+  roomId: string;
+  roomNumber: string;
   previousStatus: OrderStatus;
   newStatus: OrderStatus;
-  changedByUserId?: string;
   reason?: string;
-  timestamp: string;
 }

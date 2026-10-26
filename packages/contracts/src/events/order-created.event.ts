@@ -1,4 +1,5 @@
 import type { OrderStatus } from '../order-status.js';
+import type { EventBase } from './event-base.js';
 
 export interface OrderItem {
   itemId: string;
@@ -8,15 +9,13 @@ export interface OrderItem {
   notes?: string;
 }
 
-export interface OrderCreatedEvent {
+export interface OrderCreatedEvent extends EventBase {
   eventName: 'order.created';
   orderId: string;
-  hotelId: string;
+  orderNumber: number;
   roomId: string;
   roomNumber: string;
-  guestId?: string;
   items: OrderItem[];
   totalAmount: number;
   status: typeof OrderStatus.PENDING;
-  createdAt: string;
 }

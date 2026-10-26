@@ -31,8 +31,9 @@ services:
       PORT: 3000
       LOG_LEVEL: info
       DATABASE_URL: postgresql://${POSTGRES_USER:-concierge}:${POSTGRES_PASSWORD:-concierge_secret}@postgres:5432/${POSTGRES_DB:-concierge_iq}
-      GUEST_APP_URL: ${GUEST_WEB_URL:-http://localhost:5173}
-      DASHBOARD_APP_URL: ${DASHBOARD_WEB_URL:-http://localhost:5174}
+      GUEST_APP_URL: ${GUEST_APP_URL:-http://localhost:5173}
+      DASHBOARD_APP_URL: ${DASHBOARD_APP_URL:-http://localhost:5174}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?Set JWT_ACCESS_SECRET in .env}
     ports:
       - '3000:3000'
 

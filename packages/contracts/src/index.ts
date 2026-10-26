@@ -1,5 +1,8 @@
 // Core contracts
 export * from './order-status.js';
+export * from './order-number.js';
+export * from './payment-method.js';
+export * from './staff-role.js';
 export * from './qr-token.js';
 
 // Domain events
