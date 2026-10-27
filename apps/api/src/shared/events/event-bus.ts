@@ -36,9 +36,9 @@ export class SubscriberRegistry {
   private readonly specificEventHandlers = new Map<string, EventHandler<DomainEvent>[]>();
   private readonly globalEventHandlers: EventHandler<DomainEvent>[] = [];
 
-  public registerSubscriber = <TargetName extends string>(
-    targetEventName: TargetName,
-    eventSubscriberCallback: EventHandler<any>
+  public registerSubscriber = <TargetEvent extends DomainEvent = DomainEvent>(
+    targetEventName: string,
+    eventSubscriberCallback: EventHandler<TargetEvent>
   ): void => {
     const existingHandlers = this.specificEventHandlers.get(targetEventName) ?? [];
     existingHandlers.push(eventSubscriberCallback as EventHandler<DomainEvent>);
