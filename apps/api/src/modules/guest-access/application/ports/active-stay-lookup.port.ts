@@ -50,7 +50,7 @@ export class MockActiveStayLookupPort implements ActiveStayLookupPort {
    */
   public setActiveStay = (activeStayToSet: ActiveStaySummary): void => {
     const compositeRoomLookupKey = this.buildCompositeRoomKey(
-      activeStayToSet.hotelId,
+      activeStayToSet.hotelId ?? 'default',
       activeStayToSet.roomId
     );
     this.activeStaysByRoomCompositeKey.set(compositeRoomLookupKey, activeStayToSet);
@@ -124,7 +124,7 @@ export class MockActiveStayLookupPort implements ActiveStayLookupPort {
   };
 
   private buildCompositeRoomKey = (
-    hotelIdentifier: string,
+    hotelIdentifier: string | undefined,
     roomIdentifier: string
-  ): string => `${hotelIdentifier}:${roomIdentifier}`;
+  ): string => `${hotelIdentifier ?? 'default'}:${roomIdentifier}`;
 }
