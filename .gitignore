@@ -38,3 +38,8 @@ Thumbs.db
 # Coverage / Testing
 coverage/
 .vitest/
+
+# Internal Architecture & Planning (Do not track or push to GitHub)
+planning/
+planning/**
+
