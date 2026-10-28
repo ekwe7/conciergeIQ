@@ -14,7 +14,7 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { EventBus } from '../../../../shared/events/event-bus.js';
 import { MockClock } from '../../../../shared/utils/clock.js';
 import { RoomNotOccupiedError, UnauthorizedError } from '../../../../shared/errors/app-error.js';
-import { QRTokenService } from '../../../rooms/domain/qr-token.service.js';
+import { QRTokenService } from '../../../rooms/index.js';
 import { GuestSessionService } from '../guest-session.service.js';
 import {
   MockActiveStayLookupPort,

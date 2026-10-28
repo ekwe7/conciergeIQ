@@ -20,7 +20,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { EventBus } from '../../../../../shared/events/event-bus.js';
 import { MockClock } from '../../../../../shared/utils/clock.js';
 import { registerErrorHandler } from '../../../../../shared/http/error-handler.js';
-import { QRTokenService } from '../../../../rooms/domain/qr-token.service.js';
+import { QRTokenService } from '../../../../rooms/index.js';
 import { GuestSessionService } from '../../../application/guest-session.service.js';
 import { MockActiveStayLookupPort } from '../../../application/ports/active-stay-lookup.port.js';
 import { registerStayCheckedOutSubscriber } from '../../../infrastructure/stay-checked-out.subscriber.js';

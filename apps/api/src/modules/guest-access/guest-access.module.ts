@@ -12,7 +12,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { EventBus } from '../../shared/events/event-bus.js';
 import type { Clock } from '../../shared/utils/clock.js';
-import type { QRTokenService } from '../rooms/domain/qr-token.service.js';
+import type { QRTokenService } from '../rooms/index.js';
 import { GuestSessionService } from './application/guest-session.service.js';
 import type { ActiveStayLookupPort } from './application/ports/active-stay-lookup.port.js';
 import type { RoomLookupPort } from './application/ports/room-lookup.port.js';

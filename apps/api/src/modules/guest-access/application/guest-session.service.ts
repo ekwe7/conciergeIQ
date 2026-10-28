@@ -29,7 +29,7 @@ import {
 import type { Clock } from '../../../shared/utils/clock.js';
 import { systemClock } from '../../../shared/utils/clock.js';
 import type { EventBus } from '../../../shared/events/event-bus.js';
-import type { QRTokenService } from '../../rooms/domain/qr-token.service.js';
+import type { QRTokenService } from '../../rooms/index.js';
 import type {
   GuestSession,
   GuestSessionClaims,
