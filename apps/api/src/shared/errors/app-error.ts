@@ -41,3 +41,10 @@ export class ConflictError extends AppError {
     super(409, 'CONFLICT', message);
   }
 }
+
+export class RoomNotOccupiedError extends AppError {
+  constructor(message = 'Room is not currently occupied with an active stay') {
+    super(403, 'ROOM_NOT_OCCUPIED', message);
+  }
+}
+
