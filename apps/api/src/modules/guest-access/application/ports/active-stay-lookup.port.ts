@@ -19,9 +19,9 @@
  */
 export interface ActiveStaySummary {
   readonly id: string;
-  readonly hotelId: string;
   readonly roomId: string;
   readonly roomNumber: string;
+  readonly hotelId?: string;
   readonly guestName?: string | null;
   readonly guestPhone?: string | null;
   readonly checkedInAt: string | Date;

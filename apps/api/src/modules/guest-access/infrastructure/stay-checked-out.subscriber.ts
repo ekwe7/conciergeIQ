@@ -32,7 +32,7 @@ export const registerStayCheckedOutSubscriber = ({
   guestSessionService,
   logger,
 }: RegisterStayCheckedOutSubscriberOptions): void => {
-  eventBus.subscribe<StayCheckedOutEvent>(
+  eventBus.subscribe(
     'stay.checked_out',
     async (checkedOutEvent: StayCheckedOutEvent): Promise<void> => {
       try {

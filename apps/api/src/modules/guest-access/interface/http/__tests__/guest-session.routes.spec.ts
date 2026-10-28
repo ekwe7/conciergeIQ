@@ -53,7 +53,7 @@ describe('Guest Session Routes (/api/v1/guest/sessions)', () => {
       clock: mockClockInstance,
       eventBus: inMemoryEventBus,
       signGuestToken: (sessionClaims) =>
-        fastifyApplicationInstance.jwt.sign(sessionClaims, { expiresIn: '2h' }),
+        fastifyApplicationInstance.jwt.sign(sessionClaims as any, { expiresIn: '2h' }),
     });
 
     registerStayCheckedOutSubscriber({
@@ -257,15 +257,18 @@ describe('Guest Session Routes (/api/v1/guest/sessions)', () => {
       expect(mePayload.sessionId).toBe(sessionPayload.sessionId);
 
       // 3. Dispatch stay.checked_out domain event on event bus
-      await inMemoryEventBus.publish({
-        eventName: 'stay.checked_out',
-        hotelId: hotelIdentifier,
-        stayId: stayIdentifier,
-        roomId: roomIdentifier,
-        roomNumber: roomNumberString,
-        guestName: 'Arthur Holmwood',
-        occurredAt: new Date().toISOString(),
-      });
+      await (inMemoryEventBus.publish as (eventPayload: unknown, deliveryPayload?: unknown) => Promise<void>)(
+        {
+          eventName: 'stay.checked_out',
+          hotelId: hotelIdentifier,
+          stayId: stayIdentifier,
+          roomId: roomIdentifier,
+          roomNumber: roomNumberString,
+          guestName: 'Arthur Holmwood',
+          occurredAt: new Date().toISOString(),
+        },
+        { eventId: 'delivery-uuid-test' }
+      );
 
       // 4. Verification: Session is now revoked, subsequent calls return 401 Unauthorized
       const meResponseAfterCheckout = await fastifyApplicationInstance.inject({

@@ -82,7 +82,10 @@ export async function buildApp(options: AppOptions = {}) {
     eventBus: bus,
     clock,
     activeStayLookupPort: {
-      findActiveStayForRoom: (hotelId, roomId) => stays.stays.findActiveStayForRoom(hotelId, roomId),
+      findActiveStayForRoom: async (hotelId, roomId) => {
+        const stay = await stays.stays.findActiveStayForRoom(hotelId, roomId);
+        return stay ? { ...stay, hotelId } : undefined;
+      },
     },
     qrTokenService,
     roomLookupPort: {
@@ -99,7 +102,7 @@ export async function buildApp(options: AppOptions = {}) {
           : undefined;
       },
     },
-    signGuestToken: (claims) => app.jwt.sign(claims, { expiresIn: '2h' }),
+    signGuestToken: (claims) => app.jwt.sign(claims as any, { expiresIn: '2h' }),
     logger: app.log,
   });
 

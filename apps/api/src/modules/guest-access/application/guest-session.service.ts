@@ -222,13 +222,17 @@ export class GuestSessionService {
       for (const sessionIdentifier of revokedSessionIdentifiersList) {
         const sessionRecord = await this.sessionRegistry.findById(sessionIdentifier);
         if (sessionRecord) {
-          await this.eventBus.publish({
-            eventName: 'guest_session.invalidated',
+          const invalidatedEvent = {
+            eventName: 'guest_session.invalidated' as const,
             sessionId: sessionRecord.id,
             roomId: sessionRecord.roomId,
             roomNumber: sessionRecord.roomNumber,
-            reason: 'checked_out',
-          });
+            reason: 'checked_out' as const,
+          };
+          await (this.eventBus.publish as (eventPayload: unknown, deliveryPayload?: unknown) => Promise<void>)(
+            invalidatedEvent,
+            { eventId: randomUUID() }
+          );
         }
       }
     }
