@@ -53,7 +53,10 @@ describe('Guest Session Routes (/api/v1/guest/sessions)', () => {
       clock: mockClockInstance,
       eventBus: inMemoryEventBus,
       signGuestToken: (sessionClaims) =>
-        fastifyApplicationInstance.jwt.sign(sessionClaims as any, { expiresIn: '2h' }),
+        fastifyApplicationInstance.jwt.sign(
+          sessionClaims as unknown as Parameters<typeof fastifyApplicationInstance.jwt.sign>[0],
+          { expiresIn: '2h' }
+        ),
     });
 
     registerStayCheckedOutSubscriber({
