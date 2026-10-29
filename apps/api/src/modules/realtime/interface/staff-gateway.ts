@@ -4,6 +4,8 @@ import { z } from 'zod';
 import type { Clock } from '../../../shared/utils/clock.js';
 import type { SignedInStaff } from '../../identity/index.js';
 import type { StaffConnections } from '../application/staff-connections.js';
+import type { ChannelAuthorizer } from '../channel-authorizer.js';
+import type { EventReplayBuffer } from '../event-replay-buffer.js';
 
 const ConnectQuerySchema = z.object({ accessToken: z.string().min(1) });
 
@@ -14,6 +16,8 @@ export interface StaffGatewayDeps {
   connections: StaffConnections;
   clock: Clock;
   staffFromAccessToken(token: string): Promise<SignedInStaff | undefined>;
+  channelAuthorizer?: ChannelAuthorizer;
+  replayBuffer?: EventReplayBuffer;
 }
 
 /**
@@ -49,6 +53,20 @@ export function registerStaffGateway(app: FastifyInstance, deps: StaffGatewayDep
             message: 'Missing staff access token',
           });
         }
+
+        let lastEventId: string | undefined;
+        const headerLastEventId = request.headers['last-event-id'];
+        if (typeof headerLastEventId === 'string' && headerLastEventId.trim().length > 0) {
+          lastEventId = headerLastEventId.trim();
+        } else if (request.query && typeof request.query === 'object') {
+          const query = request.query as Record<string, unknown>;
+          if (typeof query.lastEventId === 'string' && query.lastEventId.trim().length > 0) {
+            lastEventId = query.lastEventId.trim();
+          } else if (typeof query.last_event_id === 'string' && query.last_event_id.trim().length > 0) {
+            lastEventId = query.last_event_id.trim();
+          }
+        }
+        request.lastEventId = lastEventId;
       },
     },
     async (socket, request) => {
@@ -84,6 +102,49 @@ export function registerStaffGateway(app: FastifyInstance, deps: StaffGatewayDep
         try {
           if (socket.readyState === 1) {
             socket.send(JSON.stringify(connected));
+
+            if (request.lastEventId && deps.replayBuffer) {
+              const staffChannel = `hotel:${staff.hotelId}:staff`;
+              const missed = deps.replayBuffer.getMissedEvents(staffChannel, request.lastEventId);
+              for (const entry of missed) {
+                const messageWithId = { ...(entry.data as Record<string, unknown>), eventId: entry.eventId };
+                socket.send(JSON.stringify(messageWithId));
+              }
+            }
+          }
+        } catch {
+          // ignore
+        }
+      });
+
+      // Handle client messages (channel subscription requests)
+      socket.on('message', (rawData) => {
+        try {
+          const data = JSON.parse(rawData.toString());
+          if (data && typeof data === 'object') {
+            const connectionManager = deps.connections.getConnectionManager();
+            if (data.type === 'SUBSCRIBE' && typeof data.channel === 'string') {
+              const meta = connectionManager.getMetadata(socket);
+              const isAuthorized = meta && deps.channelAuthorizer
+                ? deps.channelAuthorizer.authorize(meta, data.channel)
+                : false;
+
+              if (isAuthorized) {
+                connectionManager.subscribe(socket, data.channel);
+                socket.send(JSON.stringify({ type: 'SUBSCRIBED', channel: data.channel }));
+              } else {
+                socket.send(
+                  JSON.stringify({
+                    type: 'ERROR',
+                    error: 'Forbidden',
+                    message: `Unauthorized subscription to channel ${data.channel}`,
+                  })
+                );
+              }
+            } else if (data.type === 'UNSUBSCRIBE' && typeof data.channel === 'string') {
+              connectionManager.unsubscribe(socket, data.channel);
+              socket.send(JSON.stringify({ type: 'UNSUBSCRIBED', channel: data.channel }));
+            }
           }
         } catch {
           // ignore

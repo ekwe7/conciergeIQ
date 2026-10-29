@@ -10,5 +10,16 @@ export {
   type StaffConnectionMetadata,
   type SocketLike,
 } from './connection-manager.js';
+export { ChannelAuthorizer } from './channel-authorizer.js';
+export {
+  EventReplayBuffer,
+  type EventReplayBufferOptions,
+  type ReplayableEvent,
+  type RecordEventOptions,
+} from './event-replay-buffer.js';
+export {
+  RealtimeEventDispatcher,
+  type RealtimeEventDispatcherDeps,
+} from './realtime-event-dispatcher.js';
 export { realtimeWebSocketPlugin, type RealtimeWebSocketPluginOptions } from './websocket.plugin.js';
 export { StaffConnections, type StaffSocket } from './application/staff-connections.js';
