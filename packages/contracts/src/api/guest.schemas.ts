@@ -6,6 +6,7 @@ export const ResolveGuestSessionSchema = z.object({
 export type ResolveGuestSessionInput = z.infer<typeof ResolveGuestSessionSchema>;
 
 export const GuestSessionResponseSchema = z.object({
+  token: z.string().optional(),
   sessionId: z.string().uuid(),
   hotelId: z.string().uuid(),
   roomId: z.string().uuid(),

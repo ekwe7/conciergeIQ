@@ -2,7 +2,6 @@ import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
-import fastifyWebsocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { env } from './config/index.js';
 import { createAuditModule } from './modules/audit/index.js';
@@ -11,9 +10,10 @@ import { createIdentityModule } from './modules/identity/index.js';
 import { createMenuModule } from './modules/menu/index.js';
 import { createOrderingModule } from './modules/ordering/index.js';
 import { createPaymentsModule } from './modules/payments/index.js';
-import { createRealtimeModule } from './modules/realtime/index.js';
-import { createRoomsModule } from './modules/rooms/index.js';
+import { createRealtimeModule, realtimeWebSocketPlugin } from './modules/realtime/index.js';
+import { createRoomsModule, QRTokenService } from './modules/rooms/index.js';
 import { createStaysModule } from './modules/stays/index.js';
+import { createGuestAccessModule } from './modules/guest-access/index.js';
 import { connectToDatabase } from './shared/db/client.js';
 import { systemClock, type Clock } from './shared/utils/clock.js';
 import { EventBus } from './shared/events/event-bus.js';
@@ -76,8 +76,37 @@ export async function buildApp(options: AppOptions = {}) {
   const payments = createPaymentsModule({ db, outbox, clock, guards, orders: ordering.orders });
   const audit = createAuditModule({ db, bus, guards });
   const realtime = createRealtimeModule({ bus, clock, staffFromAccessToken: identity.staffFromAccessToken });
+  const qrTokenService = new QRTokenService(env.JWT_ACCESS_SECRET, clock);
+  const guestAccess = createGuestAccessModule({
+    eventBus: bus,
+    clock,
+    activeStayLookupPort: {
+      findActiveStayForRoom: async (hotelId, roomId) => {
+        const stay = await stays.stays.findActiveStayForRoom(hotelId, roomId);
+        return stay ? { ...stay, hotelId } : undefined;
+      },
+    },
+    qrTokenService,
+    roomLookupPort: {
+      findRoomById: async (hotelId, roomId) => {
+        const room = await rooms.rooms.findRoom(hotelId, roomId);
+        return room
+          ? { id: room.id, hotelId: room.hotelId, number: room.number, isOutOfOrder: room.isOutOfOrder }
+          : undefined;
+      },
+      findRoomByQrToken: async (qrToken) => {
+        const room = await rooms.rooms.findRoomByQrToken(qrToken);
+        return room
+          ? { id: room.id, hotelId: room.hotelId, number: room.number, isOutOfOrder: room.isOutOfOrder }
+          : undefined;
+      },
+    },
+    signGuestToken: (claims) =>
+      app.jwt.sign(claims as unknown as Parameters<typeof app.jwt.sign>[0], { expiresIn: '2h' }),
+    logger: app.log,
+  });
 
-  const httpModules = [identity, hotels, rooms, menu, ordering, stays, payments, audit];
+  const httpModules = [identity, hotels, rooms, menu, ordering, stays, payments, audit, guestAccess];
   await app.register(
     async (api) => {
       for (const module of httpModules) module.registerRoutes(api);
@@ -98,7 +127,7 @@ export async function buildApp(options: AppOptions = {}) {
     server: app,
     db,
     events: dispatcher,
-    modules: { identity, hotels, rooms, menu, ordering, stays, payments, audit },
+    modules: { identity, hotels, rooms, menu, ordering, stays, payments, audit, guestAccess, realtime },
   };
 }
 
@@ -118,7 +147,7 @@ async function registerPlugins(app: FastifyInstance): Promise<void> {
     credentials: true,
   });
   await app.register(fastifyJwt, { secret: env.JWT_ACCESS_SECRET });
-  await app.register(fastifyWebsocket);
+  await app.register(realtimeWebSocketPlugin);
 
   await app.register(fastifySwagger, {
     openapi: {
