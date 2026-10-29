@@ -5,6 +5,11 @@ import { AppError } from '../errors/app-error.js';
 export function registerErrorHandler(app: FastifyInstance): void {
   app.setErrorHandler((error: FastifyError, request, reply) => {
     if (error instanceof AppError) {
+      if (error.statusCode === 429) {
+        const retryAfterSeconds =
+          (error as { retryAfterSeconds?: number }).retryAfterSeconds ?? 60;
+        reply.header('Retry-After', String(retryAfterSeconds));
+      }
       return reply.status(error.statusCode).send({
         error: { code: error.code, message: error.message, details: error.details },
       });

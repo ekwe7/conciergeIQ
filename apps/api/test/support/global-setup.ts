@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { runMigrations } from '../../src/shared/db/migrate.js';
 
 /** Brings the test database up to the latest migration before any test runs. */
