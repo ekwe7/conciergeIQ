@@ -17,6 +17,17 @@ export {
   type GuestOrdersRoutesDeps,
 } from './interface/guest-orders.controller.js';
 export {
+  GuestOrderQueryController,
+  registerGuestOrderQueryRoutes,
+  type GuestOrderQueryRoutesDeps,
+} from './interface/guest-order-query.controller.js';
+export {
+  GetGuestOrdersUseCase,
+  GetGuestOrderDetailUseCase,
+  type GetGuestOrdersQuery,
+  type GetGuestOrderDetailQuery,
+} from './application/use-cases/get-guest-orders.use-case.js';
+export {
   PlaceOrderUseCase,
   type PlaceOrderCommand,
 } from './application/place-order.use-case.js';
