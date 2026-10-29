@@ -48,3 +48,13 @@ export class RoomNotOccupiedError extends AppError {
   }
 }
 
+export class TooManyRequestsError extends AppError {
+  constructor(
+    message = 'Too many requests, please try again later',
+    readonly retryAfterSeconds = 60
+  ) {
+    super(429, 'TOO_MANY_REQUESTS', message, { retryAfter: retryAfterSeconds });
+  }
+}
+
+
