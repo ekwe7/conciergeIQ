@@ -15,6 +15,7 @@ import { MenuCatalogAdapter } from './infrastructure/menu-catalog.adapter.js';
 import { MenuLookupAdapter } from './infrastructure/menu-lookup.adapter.js';
 import { OrderQueries } from './infrastructure/order-queries.js';
 import { registerGuestMenuRoutes } from './interface/guest-menu.controller.js';
+import { registerGuestOrdersRoutes } from './interface/guest-orders.controller.js';
 import { registerStaffOrdersRoutes } from './interface/http/staff-orders.routes.js';
 import { subscribeToPayments } from './interface/subscribers/mark-order-paid.subscriber.js';
 
@@ -48,6 +49,7 @@ export function createOrderingModule({ db, outbox, bus, clock, guards, menuModul
     registerRoutes(api: FastifyInstance) {
       registerStaffOrdersRoutes(api, { guards, orders, listHotelOrders, advanceOrder, cancelOrder });
       registerGuestMenuRoutes(api, { getGuestMenuUseCase: getGuestMenu });
+      registerGuestOrdersRoutes(api, { placeOrderUseCase: placeOrder });
     },
   };
 }

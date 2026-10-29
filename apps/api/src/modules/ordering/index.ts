@@ -11,7 +11,15 @@ export {
   registerGuestMenuRoutes,
   type GuestMenuRoutesDeps,
 } from './interface/guest-menu.controller.js';
-export type { PlaceOrderCommand } from './application/use-cases/place-order.use-case.js';
+export {
+  GuestOrdersController,
+  registerGuestOrdersRoutes,
+  type GuestOrdersRoutesDeps,
+} from './interface/guest-orders.controller.js';
+export {
+  PlaceOrderUseCase,
+  type PlaceOrderCommand,
+} from './application/place-order.use-case.js';
 export type {
   OrderPaymentFacts,
   OrderReadModel,

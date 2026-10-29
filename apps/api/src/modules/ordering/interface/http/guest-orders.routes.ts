@@ -1,6 +1,6 @@
 /**
  * WHAT IT DOES:
- * Re-exports and registers guest-facing ordering routes, including guest menu browsing.
+ * Re-exports and registers guest-facing ordering routes, including menu browsing and order placement.
  *
  * WHY IT IS WRITTEN LIKE THIS:
  * - Centralizes guest-facing HTTP route entry points within the `interface/http` directory.
@@ -11,3 +11,9 @@ export {
   registerGuestMenuRoutes,
   type GuestMenuRoutesDeps,
 } from '../guest-menu.controller.js';
+
+export {
+  GuestOrdersController,
+  registerGuestOrdersRoutes,
+  type GuestOrdersRoutesDeps,
+} from '../guest-orders.controller.js';
