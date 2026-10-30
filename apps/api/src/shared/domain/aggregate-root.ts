@@ -37,4 +37,10 @@ export abstract class AggregateRoot<AggregateIdentifierType> extends Entity<Aggr
   public clearDomainEvents(): void {
     this._recordedDomainEvents = [];
   }
+
+  public pullDomainEvents(): ReadonlyArray<DomainEvent> {
+    const recordedEvents = [...this._recordedDomainEvents];
+    this._recordedDomainEvents = [];
+    return Object.freeze(recordedEvents);
+  }
 }

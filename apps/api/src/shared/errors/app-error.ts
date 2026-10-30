@@ -41,3 +41,20 @@ export class ConflictError extends AppError {
     super(409, 'CONFLICT', message);
   }
 }
+
+export class RoomNotOccupiedError extends AppError {
+  constructor(message = 'Room is not currently occupied with an active stay') {
+    super(403, 'ROOM_NOT_OCCUPIED', message);
+  }
+}
+
+export class TooManyRequestsError extends AppError {
+  constructor(
+    message = 'Too many requests, please try again later',
+    readonly retryAfterSeconds = 60
+  ) {
+    super(429, 'TOO_MANY_REQUESTS', message, { retryAfter: retryAfterSeconds });
+  }
+}
+
+
