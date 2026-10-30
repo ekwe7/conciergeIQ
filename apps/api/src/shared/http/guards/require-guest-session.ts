@@ -41,6 +41,9 @@ declare module 'fastify' {
   interface FastifyRequest {
     guestSession: AuthenticatedGuestSession;
   }
+  interface FastifyInstance {
+    guestSessionService?: GuestSessionService;
+  }
 }
 
 export interface RequireGuestSessionGuardOptions {
@@ -190,13 +193,25 @@ export const createRequireGuestSession = (
     }
 
     // 3. Optional lifecycle check with GuestSessionService to reject revoked stays
-    if (guestSessionServiceInstance) {
-      const isSessionActiveInStore =
-        await guestSessionServiceInstance.isSessionActive(
+    const activeSessionService =
+      guestSessionServiceInstance ?? requestToAuthenticate.server.guestSessionService;
+
+    if (activeSessionService) {
+      if (typeof activeSessionService.isSessionRevoked === 'function') {
+        const isRevoked = await activeSessionService.isSessionRevoked(
           extractedSession.sessionId
         );
-      if (!isSessionActiveInStore) {
-        throw new UnauthorizedError('Guest session has been revoked or expired');
+        if (isRevoked) {
+          throw new UnauthorizedError('Guest session has been revoked or expired');
+        }
+      } else {
+        const isSessionActiveInStore =
+          await activeSessionService.isSessionActive(
+            extractedSession.sessionId
+          );
+        if (!isSessionActiveInStore) {
+          throw new UnauthorizedError('Guest session has been revoked or expired');
+        }
       }
     }
 

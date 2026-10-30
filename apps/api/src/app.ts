@@ -105,6 +105,7 @@ export async function buildApp(options: AppOptions = {}) {
       app.jwt.sign(claims as unknown as Parameters<typeof app.jwt.sign>[0], { expiresIn: '2h' }),
     logger: app.log,
   });
+  app.decorate('guestSessionService', guestAccess.guestSessionService);
 
   const httpModules = [identity, hotels, rooms, menu, ordering, stays, payments, audit, guestAccess];
   await app.register(
