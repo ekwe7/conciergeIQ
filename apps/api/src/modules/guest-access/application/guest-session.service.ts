@@ -205,6 +205,14 @@ export class GuestSessionService {
   };
 
   /**
+   * Checks if a session has been explicitly revoked (e.g. after stay checkout).
+   */
+  public isSessionRevoked = async (sessionIdentifier: string): Promise<boolean> => {
+    const session = await this.sessionRegistry.findById(sessionIdentifier);
+    return session !== undefined && session.status === 'revoked';
+  };
+
+  /**
    * Revokes all cached sessions for a given stay (e.g. upon stay.checked_out).
    */
   public revokeSessionsForStay = async (

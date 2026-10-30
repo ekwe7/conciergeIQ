@@ -1,3 +1,15 @@
+/**
+ * WHAT IT DOES:
+ * Read-only query port defining contract for retrieving order projections and summaries.
+ *
+ * WHY IT IS WRITTEN LIKE THIS:
+ * - Decouples query handlers from direct database tables and ORMs.
+ * - Supports multi-tenant isolation via required `hotelId` parameters.
+ * - Supports guest-stay isolation via `listByStay(hotelId, stayId)` and `getByStay(hotelId, stayId, orderId)`.
+ * - Provides tailored read models for payments (`findPaymentFacts`), check-out billing (`summarizeStay`),
+ *   and staff boards (`list`).
+ */
+
 import type { OrderResponse, OrderStatus } from '@conciergeiq/contracts';
 
 /** The facts the payments module needs before recording a payment. */
@@ -25,4 +37,6 @@ export interface OrderReadModel {
   findPaymentFacts(hotelId: string, orderId: string): Promise<OrderPaymentFacts | undefined>;
   listDeliveredUnpaid(hotelId: string): Promise<OrderPaymentFacts[]>;
   summarizeStay(hotelId: string, stayId: string): Promise<StayOrdersSummary>;
+  listByStay(hotelId: string, stayId: string): Promise<OrderResponse[]>;
+  getByStay(hotelId: string, stayId: string, orderId: string): Promise<OrderResponse | undefined>;
 }

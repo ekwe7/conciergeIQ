@@ -2,7 +2,6 @@ import cors from '@fastify/cors';
 import fastifyJwt from '@fastify/jwt';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
-import fastifyWebsocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { env } from './config/index.js';
 import { createAuditModule } from './modules/audit/index.js';
@@ -11,7 +10,7 @@ import { createIdentityModule } from './modules/identity/index.js';
 import { createMenuModule } from './modules/menu/index.js';
 import { createOrderingModule } from './modules/ordering/index.js';
 import { createPaymentsModule } from './modules/payments/index.js';
-import { createRealtimeModule } from './modules/realtime/index.js';
+import { createRealtimeModule, realtimeWebSocketPlugin } from './modules/realtime/index.js';
 import { createRoomsModule, QRTokenService } from './modules/rooms/index.js';
 import { createStaysModule } from './modules/stays/index.js';
 import { createGuestAccessModule } from './modules/guest-access/index.js';
@@ -106,6 +105,7 @@ export async function buildApp(options: AppOptions = {}) {
       app.jwt.sign(claims as unknown as Parameters<typeof app.jwt.sign>[0], { expiresIn: '2h' }),
     logger: app.log,
   });
+  app.decorate('guestSessionService', guestAccess.guestSessionService);
 
   const httpModules = [identity, hotels, rooms, menu, ordering, stays, payments, audit, guestAccess];
   await app.register(
@@ -128,7 +128,7 @@ export async function buildApp(options: AppOptions = {}) {
     server: app,
     db,
     events: dispatcher,
-    modules: { identity, hotels, rooms, menu, ordering, stays, payments, audit, guestAccess },
+    modules: { identity, hotels, rooms, menu, ordering, stays, payments, audit, guestAccess, realtime },
   };
 }
 
@@ -148,7 +148,7 @@ async function registerPlugins(app: FastifyInstance): Promise<void> {
     credentials: true,
   });
   await app.register(fastifyJwt, { secret: env.JWT_ACCESS_SECRET });
-  await app.register(fastifyWebsocket);
+  await app.register(realtimeWebSocketPlugin);
 
   await app.register(fastifySwagger, {
     openapi: {

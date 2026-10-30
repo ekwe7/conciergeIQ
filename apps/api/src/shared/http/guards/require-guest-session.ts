@@ -15,7 +15,6 @@
  */
 
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from 'fastify';
-import type { GuestSessionClaims } from '../../../modules/guest-access/index.js';
 import type { GuestSessionService } from '../../../modules/guest-access/index.js';
 import {
   TooManyRequestsError,
@@ -42,6 +41,9 @@ declare module 'fastify' {
   interface FastifyRequest {
     guestSession: AuthenticatedGuestSession;
   }
+  interface FastifyInstance {
+    guestSessionService?: GuestSessionService;
+  }
 }
 
 export interface RequireGuestSessionGuardOptions {
@@ -50,6 +52,96 @@ export interface RequireGuestSessionGuardOptions {
   readonly maxRequestsPerWindow?: number;
   readonly windowDurationMs?: number;
   readonly clock?: Clock;
+}
+
+/**
+ * Validates and decodes a guest session token from either a signed JWT or a mock base64url token.
+ * Returns AuthenticatedGuestSession or undefined if invalid/malformed/expired.
+ */
+export function decodeAndVerifyGuestToken(
+  tokenString: string,
+  serverJwt?: { verify<T>(token: string): T }
+): AuthenticatedGuestSession | undefined {
+  if (!tokenString) return undefined;
+
+  // 1. Attempt verification via Fastify JWT plugin if available on server
+  if (serverJwt) {
+    try {
+      const decodedJwtPayload = serverJwt.verify<Record<string, unknown>>(tokenString);
+      if (decodedJwtPayload && typeof decodedJwtPayload === 'object') {
+        const candidateClaimsRecord = decodedJwtPayload as Record<string, unknown>;
+        const resolvedSessionIdentifier = (candidateClaimsRecord.sessionId ??
+          candidateClaimsRecord.sub) as string;
+        const resolvedHotelIdentifier = candidateClaimsRecord.hotelId as string;
+        const resolvedRoomIdentifier = candidateClaimsRecord.roomId as string;
+        const resolvedStayIdentifier = candidateClaimsRecord.stayId as string;
+        const resolvedRoomNumber = (candidateClaimsRecord.roomNumber ?? '') as string;
+        const resolvedGuestName = candidateClaimsRecord.guestName as string | undefined;
+
+        if (
+          resolvedSessionIdentifier &&
+          resolvedHotelIdentifier &&
+          resolvedRoomIdentifier &&
+          resolvedStayIdentifier
+        ) {
+          return {
+            sessionId: resolvedSessionIdentifier,
+            hotelId: resolvedHotelIdentifier,
+            roomId: resolvedRoomIdentifier,
+            roomNumber: resolvedRoomNumber,
+            stayId: resolvedStayIdentifier,
+            guestName: resolvedGuestName,
+            type: 'guest',
+          };
+        }
+      }
+    } catch {
+      // Not a standard Fastify JWT or expired; continue to check mock tokens below
+    }
+  }
+
+  // 2. Fallback decoding for guest.<base64url> encoded mock tokens
+  if (tokenString.startsWith('guest.')) {
+    try {
+      const rawJsonUtf8String = Buffer.from(
+        tokenString.substring(6),
+        'base64url'
+      ).toString('utf-8');
+      const parsedPayloadObject = JSON.parse(rawJsonUtf8String) as Record<
+        string,
+        unknown
+      >;
+
+      const resolvedSessionIdentifier = (parsedPayloadObject.sessionId ??
+        parsedPayloadObject.sub) as string;
+      const resolvedHotelIdentifier = parsedPayloadObject.hotelId as string;
+      const resolvedRoomIdentifier = parsedPayloadObject.roomId as string;
+      const resolvedStayIdentifier = parsedPayloadObject.stayId as string;
+      const resolvedRoomNumber = (parsedPayloadObject.roomNumber ?? '') as string;
+      const resolvedGuestName = parsedPayloadObject.guestName as string | undefined;
+
+      if (
+        resolvedSessionIdentifier &&
+        resolvedHotelIdentifier &&
+        resolvedRoomIdentifier &&
+        resolvedStayIdentifier
+      ) {
+        return {
+          sessionId: resolvedSessionIdentifier,
+          hotelId: resolvedHotelIdentifier,
+          roomId: resolvedRoomIdentifier,
+          roomNumber: resolvedRoomNumber,
+          stayId: resolvedStayIdentifier,
+          guestName: resolvedGuestName,
+          type: 'guest',
+        };
+      }
+    } catch {
+      return undefined;
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -91,109 +183,41 @@ export const createRequireGuestSession = (
       throw new UnauthorizedError('Missing Bearer token credential');
     }
 
-    let extractedSessionClaims: GuestSessionClaims | undefined;
+    const extractedSession = decodeAndVerifyGuestToken(
+      bearerTokenString,
+      requestToAuthenticate.server.jwt
+    );
 
-    // 1. Attempt verification via Fastify JWT plugin if available on server
-    if (requestToAuthenticate.server.jwt) {
-      try {
-        const decodedJwtPayload =
-          requestToAuthenticate.server.jwt.verify<Record<string, unknown>>(
-            bearerTokenString
-          );
-
-        if (decodedJwtPayload && typeof decodedJwtPayload === 'object') {
-          const candidateClaimsRecord = decodedJwtPayload as Record<string, unknown>;
-          const resolvedSessionIdentifier = (candidateClaimsRecord.sessionId ??
-            candidateClaimsRecord.sub) as string;
-          const resolvedHotelIdentifier = candidateClaimsRecord.hotelId as string;
-          const resolvedRoomIdentifier = candidateClaimsRecord.roomId as string;
-          const resolvedStayIdentifier = candidateClaimsRecord.stayId as string;
-          const resolvedRoomNumber = (candidateClaimsRecord.roomNumber ?? '') as string;
-          const resolvedGuestName = candidateClaimsRecord.guestName as string | undefined;
-
-          if (
-            resolvedSessionIdentifier &&
-            resolvedHotelIdentifier &&
-            resolvedRoomIdentifier &&
-            resolvedStayIdentifier
-          ) {
-            extractedSessionClaims = {
-              sub: resolvedSessionIdentifier,
-              sessionId: resolvedSessionIdentifier,
-              hotelId: resolvedHotelIdentifier,
-              roomId: resolvedRoomIdentifier,
-              roomNumber: resolvedRoomNumber,
-              stayId: resolvedStayIdentifier,
-              guestName: resolvedGuestName,
-              type: 'guest',
-            };
-          }
-        }
-      } catch {
-        throw new UnauthorizedError('Invalid or expired guest session token');
-      }
-    }
-
-    // 2. Fallback decoding for guest.<base64url> encoded mock tokens
-    if (!extractedSessionClaims && bearerTokenString.startsWith('guest.')) {
-      try {
-        const rawJsonUtf8String = Buffer.from(
-          bearerTokenString.substring(6),
-          'base64url'
-        ).toString('utf-8');
-        const parsedPayloadObject = JSON.parse(rawJsonUtf8String) as Record<
-          string,
-          unknown
-        >;
-
-        const resolvedSessionIdentifier = (parsedPayloadObject.sessionId ??
-          parsedPayloadObject.sub) as string;
-        const resolvedHotelIdentifier = parsedPayloadObject.hotelId as string;
-        const resolvedRoomIdentifier = parsedPayloadObject.roomId as string;
-        const resolvedStayIdentifier = parsedPayloadObject.stayId as string;
-        const resolvedRoomNumber = (parsedPayloadObject.roomNumber ?? '') as string;
-        const resolvedGuestName = parsedPayloadObject.guestName as string | undefined;
-
-        if (
-          resolvedSessionIdentifier &&
-          resolvedHotelIdentifier &&
-          resolvedRoomIdentifier &&
-          resolvedStayIdentifier
-        ) {
-          extractedSessionClaims = {
-            sub: resolvedSessionIdentifier,
-            sessionId: resolvedSessionIdentifier,
-            hotelId: resolvedHotelIdentifier,
-            roomId: resolvedRoomIdentifier,
-            roomNumber: resolvedRoomNumber,
-            stayId: resolvedStayIdentifier,
-            guestName: resolvedGuestName,
-            type: 'guest',
-          };
-        }
-      } catch {
-        throw new UnauthorizedError('Invalid or expired guest session token');
-      }
-    }
-
-    if (!extractedSessionClaims) {
-      throw new UnauthorizedError('Invalid or malformed guest session token');
+    if (!extractedSession) {
+      throw new UnauthorizedError('Invalid or expired guest session token');
     }
 
     // 3. Optional lifecycle check with GuestSessionService to reject revoked stays
-    if (guestSessionServiceInstance) {
-      const isSessionActiveInStore =
-        await guestSessionServiceInstance.isSessionActive(
-          extractedSessionClaims.sessionId
+    const activeSessionService =
+      guestSessionServiceInstance ?? requestToAuthenticate.server.guestSessionService;
+
+    if (activeSessionService) {
+      if (typeof activeSessionService.isSessionRevoked === 'function') {
+        const isRevoked = await activeSessionService.isSessionRevoked(
+          extractedSession.sessionId
         );
-      if (!isSessionActiveInStore) {
-        throw new UnauthorizedError('Guest session has been revoked or expired');
+        if (isRevoked) {
+          throw new UnauthorizedError('Guest session has been revoked or expired');
+        }
+      } else {
+        const isSessionActiveInStore =
+          await activeSessionService.isSessionActive(
+            extractedSession.sessionId
+          );
+        if (!isSessionActiveInStore) {
+          throw new UnauthorizedError('Guest session has been revoked or expired');
+        }
       }
     }
 
     // 4. Sliding-window rate limit evaluation per session ID
     const rateLimitEvaluationDecision = rateLimiterInstance.isAllowed(
-      extractedSessionClaims.sessionId
+      extractedSession.sessionId
     );
 
     if (!rateLimitEvaluationDecision.allowed) {
@@ -209,12 +233,12 @@ export const createRequireGuestSession = (
 
     // 5. Decorate Fastify request context with authenticated guest session
     requestToAuthenticate.guestSession = {
-      sessionId: extractedSessionClaims.sessionId,
-      hotelId: extractedSessionClaims.hotelId,
-      roomId: extractedSessionClaims.roomId,
-      roomNumber: extractedSessionClaims.roomNumber,
-      stayId: extractedSessionClaims.stayId,
-      guestName: extractedSessionClaims.guestName,
+      sessionId: extractedSession.sessionId,
+      hotelId: extractedSession.hotelId,
+      roomId: extractedSession.roomId,
+      roomNumber: extractedSession.roomNumber,
+      stayId: extractedSession.stayId,
+      guestName: extractedSession.guestName,
       type: 'guest',
     };
   };
