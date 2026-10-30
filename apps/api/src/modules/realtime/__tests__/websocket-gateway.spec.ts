@@ -222,4 +222,47 @@ describe('Fastify WebSocket Gateway & Connection Registry', () => {
       expect(connectionManager.getActiveConnectionCount()).toBe(0);
     });
   });
+
+  describe('High-Volume Multi-Client Concurrency (50 Clients)', () => {
+    it('registers and cleanly maintains 50 concurrent simulated client connections', async () => {
+      const clientCount = 50;
+      const connectedSockets: WebSocket[] = [];
+
+      try {
+        for (let index = 1; index <= clientCount; index++) {
+          const guestToken = createMockGuestToken({
+            sessionId: `sess-concurrency-${index}`,
+            hotelId: 'hotel-load-test',
+            roomId: `room-c-${index}`,
+            roomNumber: `${100 + index}`,
+            stayId: `stay-c-${index}`,
+          });
+
+          const ws: WebSocket = await app.injectWS(`/ws/guest?token=${guestToken}`);
+          connectedSockets.push(ws);
+        }
+
+        expect(connectionManager.getActiveConnectionCount()).toBe(clientCount);
+
+        // Verify channel membership and heartbeat sweep across all 50 connections
+        connectionManager.checkHeartbeats();
+        expect(connectionManager.getActiveConnectionCount()).toBe(clientCount);
+
+        // Broadcast to a specific room channel among the 50
+        const targetRoomChannel = 'room:hotel-load-test:room-c-25';
+        expect(connectionManager.getSocketsByChannel(targetRoomChannel)).toHaveLength(1);
+      } finally {
+        for (const ws of connectedSockets) {
+          try {
+            ws.terminate();
+          } catch {
+            // ignore
+          }
+        }
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(connectionManager.getActiveConnectionCount()).toBe(0);
+    });
+  });
 });
