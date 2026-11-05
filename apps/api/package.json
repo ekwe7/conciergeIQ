@@ -9,6 +9,7 @@
     "start": "node dist/main.js",
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "vitest run",
+    "test:e2e": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "tsx --conditions=development src/shared/db/migrate.ts",
     "db:seed": "tsx --conditions=development db/seeds/dev.seed.ts"

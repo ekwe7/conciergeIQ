@@ -16,7 +16,8 @@
     "db:generate": "pnpm --filter @conciergeiq/api db:generate",
     "db:migrate": "pnpm --filter @conciergeiq/api db:migrate",
     "db:seed": "pnpm --filter @conciergeiq/api db:seed",
-    "test:architecture": "pnpm --filter @conciergeiq/api exec vitest run test/architecture"
+    "test:architecture": "pnpm --filter @conciergeiq/api exec vitest run test/architecture",
+    "test:e2e": "pnpm --filter @conciergeiq/api exec vitest run"
   },
   "devDependencies": {
     "dependency-cruiser": "^16.4.0",

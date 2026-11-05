@@ -41,6 +41,24 @@ export class OrderQueries implements OrderReadModel {
     return order;
   }
 
+  async listByStay(hotelId: string, stayId: string): Promise<OrderResponse[]> {
+    const rows = await this.db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.hotelId, hotelId), eq(orders.stayId, stayId)))
+      .orderBy(desc(orders.createdAt));
+    return this.toResponses(rows);
+  }
+
+  async getByStay(hotelId: string, stayId: string, orderId: string): Promise<OrderResponse | undefined> {
+    const rows = await this.db
+      .select()
+      .from(orders)
+      .where(and(eq(orders.hotelId, hotelId), eq(orders.stayId, stayId), eq(orders.id, orderId)));
+    const [order] = await this.toResponses(rows);
+    return order;
+  }
+
   async findPaymentFacts(hotelId: string, orderId: string): Promise<OrderPaymentFacts | undefined> {
     const [row] = await this.db
       .select()
