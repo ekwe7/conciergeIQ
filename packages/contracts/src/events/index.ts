@@ -9,3 +9,4 @@ export * from './stay-checked-out.event.js';
 export * from './guest-session-invalidated.event.js';
 export * from './user-deactivated.event.js';
 export * from './room-qr-regenerated.event.js';
+export * from './order-escalated.event.js';

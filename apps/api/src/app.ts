@@ -6,6 +6,9 @@ import fastifyWebsocket from '@fastify/websocket';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { env } from './config/index.js';
 import { createAuditModule } from './modules/audit/index.js';
+import { ClaudeConciergeModel, createConciergeModule, type ConciergeModel } from './modules/concierge/index.js';
+import type { GuestSessionClaims } from './modules/guest-access/index.js';
+import { createEscalationsModule, LogNotifier, TermiiNotifier, type Notifier } from './modules/escalations/index.js';
 import { createHotelsModule } from './modules/hotels/index.js';
 import { createIdentityModule } from './modules/identity/index.js';
 import { createMenuModule } from './modules/menu/index.js';
@@ -27,6 +30,12 @@ export interface AppOptions {
   clock?: Clock;
   /** How often to deliver outbox events. `false` leaves it to the caller (tests). */
   dispatchEventsEveryMs?: number | false;
+  /** How often to look for orders waiting too long. `false` leaves it to the caller (tests). */
+  escalationSweepEveryMs?: number | false;
+  /** Sends missed-order alerts. Defaults to Termii when configured, otherwise the log. */
+  notifier?: Notifier;
+  /** Answers guests. Defaults to Claude when ANTHROPIC_API_KEY is set; null turns the concierge off. */
+  conciergeModel?: ConciergeModel | null;
 }
 
 const VERSION = '0.1.0';
@@ -55,7 +64,7 @@ export async function buildApp(options: AppOptions = {}) {
     refreshTokenTtlDays: env.REFRESH_TOKEN_TTL_DAYS,
   });
   const { guards } = identity;
-  const hotels = createHotelsModule({ db, guards });
+  const hotels = createHotelsModule({ db, guards, clock });
   const rooms = createRoomsModule({
     db,
     outbox,
@@ -64,7 +73,13 @@ export async function buildApp(options: AppOptions = {}) {
     guestAppUrl: env.GUEST_APP_URL,
     hotelNameOf: async (hotelId) => (await hotels.hotels.get(hotelId)).name,
   });
-  const menu = createMenuModule({ db, outbox, clock, guards });
+  const menu = createMenuModule({
+    db,
+    outbox,
+    clock,
+    guards,
+    timezoneOf: async (hotelId) => (await hotels.hotels.get(hotelId)).timezone,
+  });
   const ordering = createOrderingModule({ db, outbox, bus, clock, guards, menuModule: menu });
   const stays = createStaysModule({
     db,
@@ -76,6 +91,17 @@ export async function buildApp(options: AppOptions = {}) {
   });
   const payments = createPaymentsModule({ db, outbox, clock, guards, orders: ordering.orders });
   const audit = createAuditModule({ db, bus, guards });
+  const escalationsModule = createEscalationsModule({
+    db,
+    outbox,
+    clock,
+    guards,
+    notifier: options.notifier ?? defaultNotifier(app),
+    orders: ordering.orders,
+    hotelNameOf: async (hotelId) => (await hotels.hotels.get(hotelId)).name,
+    dashboardUrl: env.DASHBOARD_APP_URL,
+    log: app.log,
+  });
   const realtime = createRealtimeModule({ bus, clock, staffFromAccessToken: identity.staffFromAccessToken });
   const qrTokenService = new QRTokenService(env.JWT_ACCESS_SECRET, clock);
   const guestAccess = createGuestAccessModule({
@@ -107,7 +133,32 @@ export async function buildApp(options: AppOptions = {}) {
     logger: app.log,
   });
 
-  const httpModules = [identity, hotels, rooms, menu, ordering, stays, payments, audit, guestAccess];
+  const conciergeModule = createConciergeModule({
+    db,
+    clock,
+    guards,
+    model: options.conciergeModel !== undefined ? options.conciergeModel : defaultConciergeModel(app),
+    hotelOf: async (hotelId) => {
+      const [hotel, branding] = await Promise.all([hotels.hotels.get(hotelId), hotels.hotels.getBranding(hotelId)]);
+      return { name: hotel.name, timezone: hotel.timezone, currency: hotel.currency, languages: branding.languages };
+    },
+    guestMenu: (hotelId, language) => menu.menu.getGuestMenu(hotelId, language),
+    guestFromToken: async (token) => {
+      let claims: Partial<GuestSessionClaims>;
+      try {
+        // verify, not decode: the signature must be ours.
+        claims = app.jwt.verify<Partial<GuestSessionClaims>>(token);
+      } catch {
+        return undefined;
+      }
+      if (claims.type !== 'guest' || !claims.sessionId) return undefined;
+      const session = await guestAccess.guestSessionService.validateSession(claims.sessionId);
+      if (!session) return undefined;
+      return { sessionId: session.id, hotelId: session.hotelId, roomNumber: session.roomNumber };
+    },
+  });
+
+  const httpModules = [identity, hotels, rooms, menu, ordering, stays, payments, audit, guestAccess, escalationsModule, conciergeModule];
   await app.register(
     async (api) => {
       for (const module of httpModules) module.registerRoutes(api);
@@ -119,7 +170,11 @@ export async function buildApp(options: AppOptions = {}) {
   if (options.dispatchEventsEveryMs !== false) {
     dispatcher.start(options.dispatchEventsEveryMs ?? 250);
   }
+  if (options.escalationSweepEveryMs !== false) {
+    escalationsModule.start(options.escalationSweepEveryMs ?? env.ESCALATION_SWEEP_SECONDS * 1000);
+  }
   app.addHook('onClose', async () => {
+    escalationsModule.stop();
     await dispatcher.stop();
     await connection.close();
   });
@@ -128,11 +183,41 @@ export async function buildApp(options: AppOptions = {}) {
     server: app,
     db,
     events: dispatcher,
-    modules: { identity, hotels, rooms, menu, ordering, stays, payments, audit, guestAccess },
+    modules: {
+      identity,
+      hotels,
+      rooms,
+      menu,
+      ordering,
+      stays,
+      payments,
+      audit,
+      guestAccess,
+      escalations: escalationsModule,
+      concierge: conciergeModule,
+    },
   };
 }
 
 export type ConciergeApp = Awaited<ReturnType<typeof buildApp>>;
+
+function defaultNotifier(app: FastifyInstance): Notifier {
+  if (!env.TERMII_API_KEY) {
+    if (env.NODE_ENV === 'production') app.log.warn('TERMII_API_KEY is not set: missed-order alerts will only be logged');
+    return new LogNotifier(app.log);
+  }
+  return new TermiiNotifier({
+    apiKey: env.TERMII_API_KEY,
+    baseUrl: env.TERMII_BASE_URL,
+    senderId: env.TERMII_SENDER_ID,
+    smsChannel: env.TERMII_SMS_CHANNEL,
+  });
+}
+
+function defaultConciergeModel(app: FastifyInstance): ConciergeModel | null {
+  if (!env.ANTHROPIC_API_KEY) return null;
+  return new ClaudeConciergeModel({ apiKey: env.ANTHROPIC_API_KEY, model: env.CONCIERGE_MODEL, log: app.log });
+}
 
 function loggerOptions() {
   if (env.NODE_ENV !== 'development') return { level: env.LOG_LEVEL };

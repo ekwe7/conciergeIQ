@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { OrderItemInput } from '@conciergeiq/contracts';
+import { isUniqueViolation } from '../../../../shared/db/errors.js';
 import type { Clock } from '../../../../shared/utils/clock.js';
 import { toMajorUnits } from '../../../../shared/domain/money.js';
 import { Order } from '../../domain/order.aggregate.js';
@@ -24,7 +25,36 @@ export class PlaceOrderUseCase {
     private readonly clock: Clock,
   ) {}
 
+  /**
+   * Places the order, or returns the order already placed with the same
+   * idempotency key. Phones on a weak signal retry sends whose reply was
+   * lost, sometimes later and sometimes several at once: each gets the one
+   * order back, even if the menu has changed since it was created.
+   */
   async execute(command: PlaceOrderCommand): Promise<Order> {
+    try {
+      return await this.place(command);
+    } catch (error) {
+      // Two retries raced past the lookup; the unique key let only one in.
+      if (command.idempotencyKey && isUniqueViolation(error)) {
+        const winner = await this.findExisting(command.hotelId, command.idempotencyKey);
+        if (winner) return winner;
+      }
+      throw error;
+    }
+  }
+
+  private findExisting(hotelId: string, idempotencyKey: string): Promise<Order | undefined> {
+    return this.unitOfWork.run(async ({ orders }) => (await orders.findByIdempotencyKey(hotelId, idempotencyKey)) ?? undefined);
+  }
+
+  private async place(command: PlaceOrderCommand): Promise<Order> {
+    // A retry of an order already placed is answered before the menu is checked.
+    if (command.idempotencyKey) {
+      const existing = await this.findExisting(command.hotelId, command.idempotencyKey);
+      if (existing) return existing;
+    }
+
     const menuItems = await this.menu.findItems(
       command.hotelId,
       command.items.map((line) => line.itemId),
@@ -32,10 +62,6 @@ export class PlaceOrderUseCase {
     const items = priceOrderItems(command.items, menuItems);
 
     return this.unitOfWork.run(async ({ orders, recordEvent }) => {
-      if (command.idempotencyKey) {
-        const existing = await orders.findByIdempotencyKey(command.hotelId, command.idempotencyKey);
-        if (existing) return existing;
-      }
 
       const placedAt = this.clock.now();
       const order = Order.place({

@@ -11,6 +11,15 @@ const envSchema = z.object({
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().positive().default(7),
   GUEST_APP_URL: z.string().url().default('http://localhost:5173'),
   DASHBOARD_APP_URL: z.string().url().default('http://localhost:5174'),
+  // Missed-order alerts (SMS / WhatsApp via Termii). Without a key, alerts are written to the log instead.
+  TERMII_API_KEY: z.string().optional(),
+  TERMII_BASE_URL: z.string().url().default('https://v3.api.termii.com'),
+  TERMII_SENDER_ID: z.string().min(3).max(11).default('ConciergeIQ'),
+  TERMII_SMS_CHANNEL: z.enum(['dnd', 'generic']).default('dnd'),
+  // AI concierge for guests. Without a key, guests asking the concierge are told to call the desk.
+  ANTHROPIC_API_KEY: z.string().optional(),
+  CONCIERGE_MODEL: z.string().default('claude-opus-5-5'),
+  ESCALATION_SWEEP_SECONDS: z.coerce.number().int().min(5).max(300).default(15),
 });
 
 export type Env = z.infer<typeof envSchema>;

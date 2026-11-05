@@ -11,10 +11,11 @@ export interface MenuModuleDeps {
   outbox: Outbox;
   clock: Clock;
   guards: AuthGuards;
+  timezoneOf(hotelId: string): Promise<string>;
 }
 
-export function createMenuModule({ db, outbox, clock, guards }: MenuModuleDeps) {
-  const menu = new MenuService(db, outbox, clock);
+export function createMenuModule({ db, outbox, clock, guards, timezoneOf }: MenuModuleDeps) {
+  const menu = new MenuService(db, outbox, clock, timezoneOf);
 
   return {
     menu,

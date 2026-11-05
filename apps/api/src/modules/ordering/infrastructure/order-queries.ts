@@ -1,10 +1,12 @@
-import { and, asc, desc, eq, gte, inArray, isNull, ne } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, isNull, lte, ne } from 'drizzle-orm';
 import { OrderStatus, type OrderResponse, type PaymentMethod } from '@conciergeiq/contracts';
 import type { DbExecutor } from '../../../shared/db/client.js';
 import type {
+  OrderAcceptance,
   OrderPaymentFacts,
   OrderReadModel,
   StayOrdersSummary,
+  WaitingOrder,
 } from '../application/ports/order-read-model.port.js';
 import { toMajorUnits } from '../../../shared/domain/money.js';
 import { orderItems, orders, orderStatusLog, type OrderItemRow, type OrderRow, type OrderStatusLogRow } from './orders.schema.js';
@@ -64,6 +66,57 @@ export class OrderQueries implements OrderReadModel {
       )
       .orderBy(asc(orders.createdAt));
     return rows.map(toPaymentFacts);
+  }
+
+  async listWaiting(hotelId: string, window: { placedBefore: Date; placedAfter: Date }): Promise<WaitingOrder[]> {
+    const rows = await this.db
+      .select()
+      .from(orders)
+      .where(
+        and(
+          eq(orders.hotelId, hotelId),
+          eq(orders.status, OrderStatus.PENDING),
+          lte(orders.createdAt, window.placedBefore),
+          gte(orders.createdAt, window.placedAfter),
+        ),
+      )
+      .orderBy(asc(orders.createdAt));
+    if (rows.length === 0) return [];
+
+    const items = await this.db
+      .select()
+      .from(orderItems)
+      .where(inArray(orderItems.orderId, rows.map((row) => row.id)))
+      .orderBy(asc(orderItems.position));
+    return rows.map((row) => ({
+      id: row.id,
+      number: row.number,
+      roomNumber: row.roomNumber,
+      itemsSummary: summarizeItems(items.filter((item) => item.orderId === row.id)),
+      createdAt: row.createdAt,
+    }));
+  }
+
+  async acceptanceOf(hotelId: string, orderIds: string[]): Promise<OrderAcceptance[]> {
+    if (orderIds.length === 0) return [];
+    const rows = await this.db
+      .select({ id: orders.id, status: orders.status })
+      .from(orders)
+      .where(and(eq(orders.hotelId, hotelId), inArray(orders.id, orderIds)));
+    const accepted = await this.db
+      .select({ orderId: orderStatusLog.orderId, changedAt: orderStatusLog.changedAt })
+      .from(orderStatusLog)
+      .where(
+        and(
+          inArray(orderStatusLog.orderId, rows.map((row) => row.id)),
+          eq(orderStatusLog.toStatus, OrderStatus.IN_PROGRESS),
+        ),
+      );
+    return rows.map((row) => ({
+      orderId: row.id,
+      status: row.status,
+      acceptedAt: accepted.find((entry) => entry.orderId === row.id)?.changedAt ?? null,
+    }));
   }
 
   async summarizeStay(hotelId: string, stayId: string): Promise<StayOrdersSummary> {

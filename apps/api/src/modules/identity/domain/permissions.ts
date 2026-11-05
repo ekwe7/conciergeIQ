@@ -13,6 +13,7 @@ export const Permission = {
   VIEW_ACTIVITY_LOG: 'VIEW_ACTIVITY_LOG',
   MANAGE_ROOMS_AND_QR_CODES: 'MANAGE_ROOMS_AND_QR_CODES',
   MANAGE_HOTEL_SETTINGS: 'MANAGE_HOTEL_SETTINGS',
+  MANAGE_CONCIERGE_CONTENT: 'MANAGE_CONCIERGE_CONTENT',
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];
@@ -30,6 +31,7 @@ const MINIMUM_ROLE: Record<Permission, StaffRole> = {
   VIEW_ACTIVITY_LOG: StaffRole.MANAGER,
   MANAGE_ROOMS_AND_QR_CODES: StaffRole.ADMIN,
   MANAGE_HOTEL_SETTINGS: StaffRole.ADMIN,
+  MANAGE_CONCIERGE_CONTENT: StaffRole.MANAGER,
 };
 
 function rank(role: StaffRole): number {

@@ -46,6 +46,15 @@ export function describeEvent(event: DomainEvent): ActivityDescription {
       return { category: ActivityCategory.STAFF, detail: event.userName };
     case 'room.qr_regenerated':
       return { category: ActivityCategory.ROOMS, detail: `Room ${event.roomNumber}` };
+    case 'order.escalated': {
+      const who = event.level === 1 ? 'manager' : 'admin';
+      const minutes = Math.floor(event.waitedSeconds / 60);
+      const outcome = event.delivered ? `${who} ${event.recipientName} alerted` : `alert to ${who} ${event.recipientName} failed`;
+      return {
+        category: ActivityCategory.ORDERS,
+        detail: `${formatOrderNumber(event.orderNumber)} · Room ${event.roomNumber} · waited ${minutes} min · ${outcome}`,
+      };
+    }
   }
 }
 

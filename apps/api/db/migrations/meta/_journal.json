@@ -8,6 +8,27 @@
       "when": 1792807407497,
       "tag": "0000_initial_operations_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793861094548,
+      "tag": "0001_escalations",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793861870357,
+      "tag": "0002_menu_hours_and_branding",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793862424189,
+      "tag": "0003_concierge_articles",
+      "breakpoints": true
     }
   ]
 }
