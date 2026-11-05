@@ -2,12 +2,14 @@ import { StaffRole, type MenuItem, type Room, type Stay } from '@conciergeiq/con
 import { sql } from 'drizzle-orm';
 import { buildApp, type ConciergeApp } from '../../src/app.js';
 import { StaffClient, callAnonymously } from './staff-client.js';
+import { FakeConciergeModel } from './fake-concierge.js';
 import { FakeNotifier } from './fake-notifier.js';
 import { TestClock } from './test-clock.js';
 
 export const TEST_PASSWORD = 'CorrectHorse1!';
 
 const ALL_TABLES = [
+  'concierge.articles',
   'escalations.alerts',
   'escalations.rules',
   'platform.outbox_events',
@@ -37,14 +39,23 @@ export class TestWorld {
     readonly clock: TestClock,
     /** Every missed-order alert the app tried to send. */
     readonly notifier: FakeNotifier,
+    /** The AI concierge, scripted per test. */
+    readonly concierge: FakeConciergeModel,
   ) {}
 
   static async start(): Promise<TestWorld> {
     const clock = new TestClock();
     const notifier = new FakeNotifier();
-    const app = await buildApp({ clock, dispatchEventsEveryMs: false, escalationSweepEveryMs: false, notifier });
+    const concierge = new FakeConciergeModel();
+    const app = await buildApp({
+      clock,
+      dispatchEventsEveryMs: false,
+      escalationSweepEveryMs: false,
+      notifier,
+      conciergeModel: concierge,
+    });
     await app.server.ready();
-    return new TestWorld(app, clock, notifier);
+    return new TestWorld(app, clock, notifier, concierge);
   }
 
   /** Runs one missed-order check, as the timer does every few seconds in production. */
@@ -58,6 +69,7 @@ export class TestWorld {
 
   async reset(): Promise<void> {
     this.notifier.reset();
+    this.concierge.reset();
     await this.app.db.execute(sql.raw(`truncate ${ALL_TABLES.join(', ')} restart identity cascade`));
     await this.app.db.execute(sql`alter sequence ordering.order_number_seq restart`);
   }

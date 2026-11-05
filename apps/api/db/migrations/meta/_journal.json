@@ -22,6 +22,13 @@
       "when": 1793861870357,
       "tag": "0002_menu_hours_and_branding",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793862424189,
+      "tag": "0003_concierge_articles",
+      "breakpoints": true
     }
   ]
 }

@@ -29,11 +29,13 @@ export class EscalationRepository {
     updatedAt: Date;
     updatedByUserId: string;
   }): Promise<RulesRow> {
-    const { hotelId, ...changes } = values;
     const [row] = await this.db
       .insert(rules)
       .values(values)
-      .onConflictDoUpdate({ target: rules.hotelId, set: changes })
+      .onConflictDoUpdate({
+        target: rules.hotelId,
+        set: { manager: values.manager, admin: values.admin, updatedAt: values.updatedAt, updatedByUserId: values.updatedByUserId },
+      })
       .returning();
     return row;
   }
