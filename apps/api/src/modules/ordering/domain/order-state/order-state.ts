@@ -1,15 +1,29 @@
-import type { OrderStatus } from '../order-status.js';
-
 /**
- * One state of an order's lifecycle. Each state knows which moves it allows,
- * so the rules live in one place per status instead of in a switch statement.
- *
+ * WHAT IT DOES:
+ * OrderState interface representing the State Pattern contract for order lifecycle management:
  *   PENDING -> IN_PROGRESS -> DELIVERED
  *      \___________\_______-> CANCELLED
+ *
+ * WHY IT IS WRITTEN LIKE THIS:
+ * - Eliminates scattered conditional branching and switch statements by delegating
+ *   transition validation and next-state determination directly to individual state objects.
+ * - Arrow functions and descriptive method contracts are used throughout.
  */
+
+import type { OrderStatus } from '../order-status.js';
+
 export interface OrderState {
   readonly status: OrderStatus;
-  /** The state after the next step: accept, then deliver. */
-  next(): OrderState;
+
+  /** Transitions order from PENDING to IN_PROGRESS. */
+  accept(): OrderState;
+
+  /** Transitions order from IN_PROGRESS to DELIVERED. Direct transition from PENDING is forbidden. */
+  deliver(): OrderState;
+
+  /** Cancels the order. Only allowed from PENDING or IN_PROGRESS. */
   cancel(): OrderState;
+
+  /** Sequential advancement: accept if PENDING, deliver if IN_PROGRESS. */
+  next(): OrderState;
 }

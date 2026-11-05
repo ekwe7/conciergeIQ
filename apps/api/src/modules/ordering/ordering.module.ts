@@ -7,11 +7,15 @@ import type { AuthGuards } from '../identity/index.js';
 import type { MenuModule } from '../menu/index.js';
 import { AdvanceOrderUseCase } from './application/use-cases/advance-order.use-case.js';
 import { CancelOrderUseCase } from './application/use-cases/cancel-order.use-case.js';
+import { GetGuestMenuUseCase } from './application/use-cases/get-guest-menu.use-case.js';
 import { ListHotelOrdersUseCase } from './application/use-cases/list-hotel-orders.use-case.js';
 import { PlaceOrderUseCase } from './application/use-cases/place-order.use-case.js';
 import { DrizzleOrderingUnitOfWork } from './infrastructure/drizzle-ordering-unit-of-work.js';
+import { MenuCatalogAdapter } from './infrastructure/menu-catalog.adapter.js';
 import { MenuLookupAdapter } from './infrastructure/menu-lookup.adapter.js';
 import { OrderQueries } from './infrastructure/order-queries.js';
+import { registerGuestMenuRoutes } from './interface/guest-menu.controller.js';
+import { registerGuestOrdersRoutes } from './interface/guest-orders.controller.js';
 import { registerStaffOrdersRoutes } from './interface/http/staff-orders.routes.js';
 import { subscribeToPayments } from './interface/subscribers/mark-order-paid.subscriber.js';
 
@@ -32,6 +36,7 @@ export function createOrderingModule({ db, outbox, bus, clock, guards, menuModul
   const listHotelOrders = new ListHotelOrdersUseCase(orders, clock);
   const advanceOrder = new AdvanceOrderUseCase(unitOfWork, clock);
   const cancelOrder = new CancelOrderUseCase(unitOfWork, clock);
+  const getGuestMenu = new GetGuestMenuUseCase(new MenuCatalogAdapter(menuModule));
 
   subscribeToPayments(bus, db);
 
@@ -39,9 +44,12 @@ export function createOrderingModule({ db, outbox, bus, clock, guards, menuModul
     placeOrder,
     advanceOrder,
     cancelOrder,
+    getGuestMenu,
     orders,
     registerRoutes(api: FastifyInstance) {
       registerStaffOrdersRoutes(api, { guards, orders, listHotelOrders, advanceOrder, cancelOrder });
+      registerGuestMenuRoutes(api, { getGuestMenuUseCase: getGuestMenu });
+      registerGuestOrdersRoutes(api, { placeOrderUseCase: placeOrder });
     },
   };
 }
