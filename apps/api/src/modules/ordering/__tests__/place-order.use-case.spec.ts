@@ -19,6 +19,7 @@ class InMemoryOrdering implements OrderingUnitOfWork {
       findByIdempotencyKey: async (hotelId, key) =>
         this.orders.find((o) => o.hotelId === hotelId && o.toProps().idempotencyKey === key),
       insert: async (order) => void this.orders.push(order),
+      save: async (order) => void this.orders.push(order),
       saveStatusChange: async () => {},
     };
     return work({ orders, recordEvent: async (event) => void this.events.push(event) }) as Promise<T>;
