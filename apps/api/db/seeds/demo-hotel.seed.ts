@@ -43,6 +43,34 @@ const MENU: Record<string, [name: string, price: number][]> = {
   ],
 };
 
+/** Breakfast, lunch and late night: applied after the demo orders are placed, so seeding works at any hour. */
+const SERVICE_HOURS: Record<string, [from: string, until: string]> = {
+  Breakfast: ['06:30', '11:00'],
+  'Soups & swallows': ['12:00', '23:00'],
+};
+
+const FEATURED = ['Jollof rice & grilled chicken', 'Full Nigerian breakfast'];
+
+/** "Add a drink?" suggestions. */
+const PAIRINGS: Record<string, string[]> = {
+  'Jollof rice & grilled chicken': ['Chapman', 'Sparkling water'],
+  'Azure club burger': ['Chapman', 'Water'],
+  'Egusi & pounded yam': ['Water'],
+  'Full Nigerian breakfast': ['Chapman'],
+};
+
+/** A few French names so the language switch has something to show. Hausa, Yorùbá and Arabic are left to the hotel. */
+const FRENCH: Record<string, string> = {
+  Breakfast: 'Petit-déjeuner',
+  Mains: 'Plats',
+  Drinks: 'Boissons',
+  Amenities: 'Équipements',
+  'Jollof rice & grilled chicken': 'Riz jollof et poulet grillé',
+  'Sparkling water': 'Eau gazeuse',
+  Water: 'Eau',
+  'Extra towels': 'Serviettes supplémentaires',
+};
+
 const GUESTS: [roomNumber: string, guestName: string, nights: number][] = [
   ['101', 'Mr. Bello', 2],
   ['103', 'Ms. Adeyemi', 1],
@@ -76,12 +104,32 @@ export async function seedDemoHotel(app: ConciergeApp): Promise<DemoHotel> {
   await rooms.rooms.update(hotel.id, room('105').id, { isOutOfOrder: true, outOfOrderReason: 'AC repair' });
 
   const items: Record<string, MenuItem> = {};
+  const categoryIds: Record<string, string> = {};
+  const french = (name: string) => (FRENCH[name] ? { fr: { name: FRENCH[name] } } : {});
   let sortOrder = 0;
   for (const [categoryName, categoryItems] of Object.entries(MENU)) {
-    const category = await menu.menu.createCategory(hotel.id, { name: categoryName, sortOrder: sortOrder++ });
+    const category = await menu.menu.createCategory(hotel.id, {
+      name: categoryName,
+      sortOrder: sortOrder++,
+      availableFrom: null,
+      availableUntil: null,
+      translations: french(categoryName),
+    });
+    categoryIds[categoryName] = category.id;
     for (const [name, price] of categoryItems) {
-      items[name] = await menu.menu.createItem(hotel.id, { categoryId: category.id, name, price, isAvailable: true });
+      items[name] = await menu.menu.createItem(hotel.id, {
+        categoryId: category.id,
+        name,
+        price,
+        isAvailable: true,
+        isFeatured: FEATURED.includes(name),
+        pairsWith: [],
+        translations: french(name),
+      });
     }
+  }
+  for (const [name, suggestions] of Object.entries(PAIRINGS)) {
+    await menu.menu.updateItem(hotel.id, items[name]!.id, { pairsWith: suggestions.map((suggestion) => items[suggestion]!.id) });
   }
   await menu.menu.setAvailability(staff.MANAGER, items['Seafood pasta']!.id, false);
 
@@ -129,6 +177,10 @@ export async function seedDemoHotel(app: ConciergeApp): Promise<DemoHotel> {
   await order('107', [['Extra towels', 2], ['Toiletries', 1]]);
 
   await rooms.rooms.regenerateQrCodes(admin, [room('103').id]);
+
+  for (const [categoryName, [availableFrom, availableUntil]] of Object.entries(SERVICE_HOURS)) {
+    await menu.menu.updateCategory(hotel.id, categoryIds[categoryName]!, { availableFrom, availableUntil });
+  }
 
   return { rooms: await rooms.rooms.list(hotel.id) };
 }

@@ -4,6 +4,7 @@ export * from './order-number.js';
 export * from './payment-method.js';
 export * from './staff-role.js';
 export * from './qr-token.js';
+export * from './languages.js';
 
 // Domain events
 export * from './events/index.js';

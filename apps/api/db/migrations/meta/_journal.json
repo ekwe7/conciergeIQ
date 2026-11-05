@@ -15,6 +15,13 @@
       "when": 1793861094548,
       "tag": "0001_escalations",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793861870357,
+      "tag": "0002_menu_hours_and_branding",
+      "breakpoints": true
     }
   ]
 }

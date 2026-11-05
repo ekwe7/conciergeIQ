@@ -60,7 +60,7 @@ export async function buildApp(options: AppOptions = {}) {
     refreshTokenTtlDays: env.REFRESH_TOKEN_TTL_DAYS,
   });
   const { guards } = identity;
-  const hotels = createHotelsModule({ db, guards });
+  const hotels = createHotelsModule({ db, guards, clock });
   const rooms = createRoomsModule({
     db,
     outbox,
@@ -69,7 +69,13 @@ export async function buildApp(options: AppOptions = {}) {
     guestAppUrl: env.GUEST_APP_URL,
     hotelNameOf: async (hotelId) => (await hotels.hotels.get(hotelId)).name,
   });
-  const menu = createMenuModule({ db, outbox, clock, guards });
+  const menu = createMenuModule({
+    db,
+    outbox,
+    clock,
+    guards,
+    timezoneOf: async (hotelId) => (await hotels.hotels.get(hotelId)).timezone,
+  });
   const ordering = createOrderingModule({ db, outbox, bus, clock, guards, menuModule: menu });
   const stays = createStaysModule({
     db,
