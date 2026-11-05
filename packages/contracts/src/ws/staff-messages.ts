@@ -65,6 +65,19 @@ export interface StaffSessionRevokedMessage {
   };
 }
 
+/** A manager or admin was texted because an order is still waiting. */
+export interface StaffOrderEscalatedMessage {
+  type: 'ORDER_ESCALATED';
+  payload: {
+    orderId: string;
+    orderNumber: number;
+    roomNumber: string;
+    level: 1 | 2;
+    recipientName: string;
+    waitedSeconds: number;
+  };
+}
+
 export interface StaffNewServiceRequestMessage {
   type: 'NEW_SERVICE_REQUEST';
   payload: {
@@ -94,5 +107,6 @@ export type StaffWSMessage =
   | StaffPaymentRecordedMessage
   | StaffItemAvailabilityChangedMessage
   | StaffSessionRevokedMessage
+  | StaffOrderEscalatedMessage
   | StaffNewServiceRequestMessage
   | StaffEmergencyAlertMessage;

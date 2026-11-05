@@ -16,6 +16,10 @@ export class TestClock implements Clock {
     this.current = new Date(this.current.getTime() + minutes * 60_000);
   }
 
+  advanceSeconds(seconds: number): void {
+    this.current = new Date(this.current.getTime() + seconds * 1000);
+  }
+
   /** An ISO time this many days after now, for things like expected departure. */
   daysFromNow(days: number): string {
     return new Date(this.current.getTime() + days * 24 * 60 * 60_000).toISOString();

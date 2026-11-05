@@ -2,11 +2,14 @@ import { StaffRole, type MenuItem, type Room, type Stay } from '@conciergeiq/con
 import { sql } from 'drizzle-orm';
 import { buildApp, type ConciergeApp } from '../../src/app.js';
 import { StaffClient, callAnonymously } from './staff-client.js';
+import { FakeNotifier } from './fake-notifier.js';
 import { TestClock } from './test-clock.js';
 
 export const TEST_PASSWORD = 'CorrectHorse1!';
 
 const ALL_TABLES = [
+  'escalations.alerts',
+  'escalations.rules',
   'platform.outbox_events',
   'audit.activity_log',
   'payments.payments',
@@ -32,13 +35,21 @@ export class TestWorld {
   private constructor(
     readonly app: ConciergeApp,
     readonly clock: TestClock,
+    /** Every missed-order alert the app tried to send. */
+    readonly notifier: FakeNotifier,
   ) {}
 
   static async start(): Promise<TestWorld> {
     const clock = new TestClock();
-    const app = await buildApp({ clock, dispatchEventsEveryMs: false });
+    const notifier = new FakeNotifier();
+    const app = await buildApp({ clock, dispatchEventsEveryMs: false, escalationSweepEveryMs: false, notifier });
     await app.server.ready();
-    return new TestWorld(app, clock);
+    return new TestWorld(app, clock, notifier);
+  }
+
+  /** Runs one missed-order check, as the timer does every few seconds in production. */
+  async checkForMissedOrders(): Promise<number> {
+    return this.app.modules.escalations.escalations.sweep();
   }
 
   get server() {
@@ -46,6 +57,7 @@ export class TestWorld {
   }
 
   async reset(): Promise<void> {
+    this.notifier.reset();
     await this.app.db.execute(sql.raw(`truncate ${ALL_TABLES.join(', ')} restart identity cascade`));
     await this.app.db.execute(sql`alter sequence ordering.order_number_seq restart`);
   }

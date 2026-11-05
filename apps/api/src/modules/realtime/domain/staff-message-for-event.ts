@@ -45,6 +45,18 @@ export function staffMessageForEvent(event: DomainEvent): StaffWSMessage | undef
         type: 'ITEM_AVAILABILITY_CHANGED',
         payload: { itemId: event.itemId, itemName: event.itemName, isAvailable: event.isAvailable },
       };
+    case 'order.escalated':
+      return {
+        type: 'ORDER_ESCALATED',
+        payload: {
+          orderId: event.orderId,
+          orderNumber: event.orderNumber,
+          roomNumber: event.roomNumber,
+          level: event.level,
+          recipientName: event.recipientName,
+          waitedSeconds: event.waitedSeconds,
+        },
+      };
     default:
       return undefined;
   }

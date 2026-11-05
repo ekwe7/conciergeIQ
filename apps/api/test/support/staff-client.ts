@@ -30,12 +30,16 @@ export class StaffClient {
     return this.send('PATCH', path, body);
   }
 
+  put(path: string, body: object): Promise<ApiResponse> {
+    return this.send('PUT', path, body);
+  }
+
   delete(path: string): Promise<ApiResponse> {
     return this.send('DELETE', path);
   }
 
   private async send(
-    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
+    method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     path: string,
     body?: object,
     query?: Record<string, string>,

@@ -8,3 +8,4 @@ export * from './orders.schemas.js';
 export * from './payments.schemas.js';
 export * from './activity.schemas.js';
 export * from './guest.schemas.js';
+export * from './escalations.schemas.js';

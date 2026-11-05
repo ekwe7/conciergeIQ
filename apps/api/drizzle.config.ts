@@ -6,6 +6,6 @@ export default defineConfig({
   // Each module owns its tables in its own Postgres schema.
   schema: ['./src/shared/events/outbox.schema.ts', './src/modules/*/infrastructure/*.schema.ts'],
   out: './db/migrations',
-  schemaFilter: ['platform', 'hotels', 'identity', 'rooms', 'stays', 'menu', 'ordering', 'payments', 'audit'],
+  schemaFilter: ['platform', 'hotels', 'identity', 'rooms', 'stays', 'menu', 'ordering', 'payments', 'audit', 'escalations'],
   dbCredentials: { url: process.env.DATABASE_URL ?? '' },
 });
